@@ -843,22 +843,45 @@ function populateMesSelects() {
   document.getElementById('fData').value = now.toISOString().split('T')[0];
 }
 
-function mesMatch(rowMes, lancMes) {
-  if (!rowMes || !lancMes) return false;
-  const rp = rowMes.toLowerCase().split('/');
-  const lp = lancMes.toLowerCase().split('/');
-  return rp[0].trim().substring(0,3) === lp[0].trim().substring(0,3) &&
-         (!rp[1] || !lp[1] || rp[1].trim().slice(-2) === lp[1].trim().slice(-2));
+function normalizeMes(mes) {
+  if (!mes) return '';
+  const mMap = {
+    'jan':'jan','janeiro':'jan','fev':'fev','fevereiro':'fev',
+    'mar':'mar','marco':'mar','março':'mar','abr':'abr','abril':'abr',
+    'mai':'mai','maio':'mai','jun':'jun','junho':'jun',
+    'jul':'jul','julho':'jul','ago':'ago','agosto':'ago',
+    'set':'set','setembro':'set','out':'out','outubro':'out',
+    'nov':'nov','novembro':'nov','dez':'dez','dezembro':'dez'
+  };
+  const parts = String(mes).toLowerCase().replace(/[^a-záéíóúãõç\/\-0-9]/g,' ').trim().split(/[\s\/\-]+/);
+  let mesStr = '', anoStr = '';
+  for (const p of parts) {
+    if (mMap[p]) mesStr = mMap[p];
+    else if (/^\d{2,4}$/.test(p)) anoStr = p.slice(-2);
+  }
+  return mesStr + (anoStr ? '/' + anoStr : '');
+}
+
+function mesMatch(a, b) {
+  const na = normalizeMes(a);
+  const nb = normalizeMes(b);
+  if (!na || !nb) return false;
+  const [ma, ya] = na.split('/');
+  const [mb, yb] = nb.split('/');
+  return ma === mb && (!ya || !yb || ya === yb);
 }
 
 function mergeLancamentos(data) {
   const d = JSON.parse(JSON.stringify(data));
+  const changedSMG = new Set();
+  const changedPN  = new Set();
+
   Object.values(_lancamentos).forEach(l => {
-    const arr = l.imovel === 'smg' ? d.smg : d.pn;
+    const isSMG = l.imovel === 'smg';
+    const arr   = isSMG ? d.smg : d.pn;
     if (!arr) return;
     let row = arr.find(r => mesMatch(r.mes, l.mes));
     if (!row) {
-      // Cria linha do mês se ainda não existe no Excel
       row = { mes: l.mes, entradas:0, receita:0, comissao:0, limpeza:0, lavanderia:0, outros:0, desp_fixas:0, liquido:0 };
       arr.push(row);
     }
@@ -867,9 +890,17 @@ function mergeLancamentos(data) {
     } else {
       row[l.categoria] = (row[l.categoria] || 0) + (l.tipo === 'saida' ? l.valor : -l.valor);
     }
-    // Recalcula lucro líquido
-    row.liquido = (row.receita||0) - (row.comissao||0) - (row.limpeza||0) - (row.lavanderia||0) - (row.outros||0) - (l.imovel==='smg' ? (row.desp_fixas||0) : 0);
+    if (isSMG) changedSMG.add(row); else changedPN.add(row);
   });
+
+  // Recalcula lucro líquido uma vez por linha, após todos os lançamentos
+  changedSMG.forEach(row => {
+    row.liquido = (row.receita||0) - (row.comissao||0) - (row.limpeza||0) - (row.lavanderia||0) - (row.outros||0) - (row.desp_fixas||0);
+  });
+  changedPN.forEach(row => {
+    row.liquido = (row.receita||0) - (row.comissao||0) - (row.limpeza||0) - (row.lavanderia||0) - (row.outros||0);
+  });
+
   return d;
 }
 
