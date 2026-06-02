@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Locações — Financeiro</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+:root {
+  --primary:  #4f8ef7;
+  --primary2: #3a6fd8;
+  --green:    #00c9a7;
+  --yellow:   #FFB400;
+  --bg:       #0f1117;
+  --card:     #1a1d27;
+  --text:     #e8eaf0;
+  --muted:    #8b92a5;
+  --border:   #2a2d3a;
+  --shadow:   0 2px 16px rgba(0,0,0,0.35);
+  --radius:   14px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 38px; height: 38px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+
+.logo h1 { font-size: 17px; font-weight: 700; }
+.logo span { font-size: 13px; color: var(--muted); display: block; margin-top: 1px; }
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #ccc;
+  transition: background 0.4s;
+}
+.dot.live   { background: var(--green); animation: pulse 2s infinite; }
+.dot.error  { background: var(--primary); }
+
+@keyframes pulse {
+  0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,166,153,0.4); }
+  50%      { opacity: 0.7; box-shadow: 0 0 0 4px rgba(0,166,153,0); }
+}
+
+/* ── Main ── */
+.main { padding: 28px 32px; max-width: 1380px; margin: 0 auto; }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
+}
+
+.tab {
+  padding: 10px 22px;
+  font-size: 14px; font-weight: 500;
+  color: var(--muted);
+  background: none; border: none;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* ── KPI Grid ── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.kpi-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+
+.kpi-label {
+  font-size: 11px; font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+
+.kpi-value {
+  font-size: 26px; font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+.kpi-value.green { color: var(--green); }
+.kpi-value.red   { color: var(--primary); }
+
+.kpi-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* ── Charts ── */
+.charts-row {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.chart-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.chart-card h3 {
+  font-size: 14px; font-weight: 700;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+.chart-container { position: relative; height: 260px; }
+.chart-container.short { height: 190px; }
+
+/* ── Table Card ── */
+.table-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.table-card h3 {
+  font-size: 14px; font-weight: 700;
+  margin-bottom: 20px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+th {
+  text-align: left;
+  padding: 9px 14px;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #22263a; }
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px; font-weight: 700;
+}
+.badge-green { background: rgba(0,201,167,0.15); color: var(--green); }
+.badge-red   { background: rgba(79,142,247,0.15); color: var(--primary); }
+.badge-gray  { background: rgba(139,146,165,0.15); color: var(--muted); }
+
+/* ── Chart toggle ── */
+.chart-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.chart-header h3 { margin-bottom: 0; }
+.toggle-group { display: flex; gap: 6px; }
+.toggle-btn {
+  padding: 5px 14px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--border); border-radius: 20px;
+  background: none; color: var(--muted); cursor: pointer; transition: all 0.2s;
+}
+.toggle-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* ── Loading ── */
+#loading {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  color: var(--muted);
+}
+.spinner {
+  width: 42px; height: 42px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#dashboard { display: none; }
+
+/* ── Tab panes ── */
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── No-data state ── */
+.empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+/* ── Mês a Mês ── */
+.mm-filters {
+  display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+}
+.mm-filters select {
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 14px; font-size: 14px; cursor: pointer;
+}
+.form-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 16px; margin-bottom: 20px;
+}
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group select,
+.form-group input {
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; font-size: 14px;
+}
+.form-group input::placeholder { color: var(--muted); }
+.btn-primary {
+  background: var(--primary); color: #fff;
+  border: none; border-radius: 8px;
+  padding: 11px 28px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-delete {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 15px; padding: 4px 8px;
+  border-radius: 6px; transition: all 0.2s;
+}
+.btn-delete:hover { color: #ff5555; background: rgba(255,85,85,0.12); }
+.mm-label { font-size: 13px; color: var(--muted); }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .main { padding: 16px; }
+  .charts-row { grid-template-columns: 1fr; }
+  .header { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <div>
+      <h1>Dashboard Locações</h1>
+      <span>Acompanhamento Financeiro</span>
+    </div>
+  </div>
+  <div class="status-bar">
+    <div class="dot" id="dot"></div>
+    <span id="statusText">Conectando...</span>
+  </div>
+</header>
+
+<main class="main">
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Carregando dados do Excel...</p>
+  </div>
+
+  <div id="dashboard">
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="geral">Visão Geral</button>
+      <button class="tab" data-tab="smg">SMG</button>
+      <button class="tab" data-tab="pn">PN</button>
+      <button class="tab" data-tab="comissoes">Comissões</button>
+      <button class="tab" data-tab="mesames">Mês a Mês</button>
+    </nav>
+
+    <!-- ── GERAL ── -->
+    <div class="tab-pane active" id="tab-geral">
+      <div class="kpi-grid" id="kpiCards"></div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <h3>Receita Mensal — SMG vs PN</h3>
+          <div class="chart-container"><canvas id="chartReceita"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Composição das Despesas</h3>
+            <div class="toggle-group">
+              <button class="toggle-btn active" id="btnDespSMG" onclick="setDespView('smg')">SMG</button>
+              <button class="toggle-btn" id="btnDespPN" onclick="setDespView('pn')">PN</button>
+            </div>
+          </div>
+          <div class="chart-container"><canvas id="chartDespesas"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:16px">
+        <div class="chart-header">
+          <h3>Lucro Líquido Mensal</h3>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="btnLucroSMG" onclick="setLucroView('smg')">SMG</button>
+            <button class="toggle-btn" id="btnLucroPN" onclick="setLucroView('pn')">PN</button>
+          </div>
+        </div>
+        <div class="chart-container short"><canvas id="chartLucro"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── SMG ── -->
+    <div class="tab-pane" id="tab-smg">
+      <div class="table-card">
+        <h3>SMG — Detalhamento Mensal</h3>
+        <table>
+          <thead><tr>
+            <th>Mês</th><th>Reservas</th><th>Receita</th>
+            <th>Comissão</th><th>Limpeza</th><th>Lavanderia</th>
+            <th>Outros</th><th>Desp. Fixas</th><th>Lucro Líquido</th>
+          </tr></thead>
+          <tbody id="bodySMG"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PN ── -->
+    <div class="tab-pane" id="tab-pn">
+      <div class="table-card">
+        <h3>PN — Detalhamento Mensal</h3>
+        <table>
+          <thead><tr>
+            <th>Mês</th><th>Reservas</th><th>Receita</th>
+            <th>Comissão</th><th>Lavanderia</th><th>Limpeza</th>
+            <th>Outros</th><th>Lucro Líquido</th>
+          </tr></thead>
+          <tbody id="bodyPN"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── COMISSÕES ── -->
+    <div class="tab-pane" id="tab-comissoes">
+      <div class="table-card">
+        <h3>Comissões por Mês e Imóvel</h3>
+        <table>
+          <thead><tr>
+            <th>Mês</th><th>SMG</th><th>Pipa</th><th>PN</th><th>Total</th>
+          </tr></thead>
+          <tbody id="bodyComissoes"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- ── MÊS A MÊS ── -->
+    <div class="tab-pane" id="tab-mesames">
+
+      <!-- Filtros -->
+      <div class="mm-filters">
+        <span class="mm-label">Visualizar:</span>
+        <select id="mmImovel" onchange="renderMesMes()">
+          <option value="smg">SMG</option>
+          <option value="pn">PN</option>
+        </select>
+        <select id="mmMes" onchange="renderMesMes()"></select>
+      </div>
+
+      <!-- Tabela de lançamentos -->
+      <div class="table-card">
+        <h3 id="mmTitle">Lançamentos</h3>
+        <table>
+          <thead><tr>
+            <th>Data</th><th>Motivo</th><th>Categoria</th><th style="color:var(--green)">Entrada</th><th style="color:#ff5555">Saída</th><th></th>
+          </tr></thead>
+          <tbody id="bodyMesMes"></tbody>
+        </table>
+      </div>
+
+      <!-- Formulário -->
+      <div class="table-card">
+        <h3>➕ Novo Lançamento</h3>
+        <form id="formLancamento" onsubmit="addLancamento(event)" style="margin-top:16px">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Imóvel</label>
+              <select id="fImovel">
+                <option value="smg">SMG</option>
+                <option value="pn">PN</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Mês</label>
+              <select id="fMes"></select>
+            </div>
+            <div class="form-group">
+              <label>Data</label>
+              <input type="date" id="fData" required>
+            </div>
+            <div class="form-group">
+              <label>Motivo</label>
+              <input type="text" id="fMotivo" placeholder="ex: limpeza avulso" required>
+            </div>
+            <div class="form-group">
+              <label>Categoria</label>
+              <select id="fCategoria">
+                <option value="receita">Receita</option>
+                <option value="limpeza">Limpeza</option>
+                <option value="lavanderia">Lavanderia</option>
+                <option value="comissao">Comissão</option>
+                <option value="desp_fixas">Desp. Fixas</option>
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tipo</label>
+              <select id="fTipo">
+                <option value="saida">Saída (despesa)</option>
+                <option value="entrada">Entrada (receita)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Valor (R$)</label>
+              <input type="number" id="fValor" min="0.01" step="0.01" placeholder="140.00" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">Adicionar Lançamento</button>
+        </form>
+      </div>
+
+    </div>
+
+  </div><!-- /dashboard -->
+
+</main>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
+// ════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyCb0kBnZapp7wwZjoYYkjTnCFlyn6Zqulg",
+  authDomain:        "locacao-dashboard.firebaseapp.com",
+  databaseURL:       "https://locacao-dashboard-default-rtdb.firebaseio.com",
+  projectId:         "locacao-dashboard",
+  storageBucket:     "locacao-dashboard.firebasestorage.app",
+  messagingSenderId: "389573785182",
+  appId:             "1:389573785182:web:e1ebbe9e259762d3e066cf"
+};
+// ════════════════════════════════════════════════════════════
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── Helpers ───────────────────────────────────────────────
+const R$ = v => {
+  const n = parseFloat(v);
+  return isNaN(n) || n === 0 ? '—' : 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+const N = v => (!v || v === 0) ? '—' : v;
+
+function liquidoBadge(v) {
+  if (!v || v === 0) return '<span class="badge badge-gray">—</span>';
+  return `<span class="badge ${v >= 0 ? 'badge-green' : 'badge-red'}">${R$(v)}</span>`;
+}
+
+// ── Tabs ──────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Charts storage ────────────────────────────────────────
+const charts = {};
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ── KPI Cards ─────────────────────────────────────────────
+function renderKPIs(data) {
+  const smg = data.smg || [];
+  const pn  = data.pn  || [];
+  const com = data.comissoes || [];
+
+  const mesesPt2 = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const now2 = new Date();
+  const idxAtual2 = now2.getMonth();
+  const anoAtual2 = now2.getFullYear();
+  function dentroDoMesAtual(mes) {
+    if (!mes) return false;
+    const partes = mes.toLowerCase().split('/');
+    const mesStr = partes[0].trim().substring(0, 3);
+    const ano = partes[1] ? parseInt(partes[1].trim()) : anoAtual2;
+    const idx = mesesPt2.indexOf(mesStr);
+    if (idx < 0) return true;
+    return ano < anoAtual2 || (ano === anoAtual2 && idx <= idxAtual2);
+  }
+  const filtrado = [...smg, ...pn].filter(r => dentroDoMesAtual(r.mes));
+  const totalReceita  = filtrado.reduce((s, r) => s + (r.receita  || 0), 0);
+  const totalLucro    = filtrado.reduce((s, r) => s + (r.liquido  || 0), 0);
+  const totalEntradas = filtrado.reduce((s, r) => s + (r.entradas || 0), 0);
+  const totalComissao = filtrado.reduce((s, r) => s + (r.comissao || 0), 0);
+
+  document.getElementById('kpiCards').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#fff0f0">💰</div>
+      <div class="kpi-label">Receita Total</div>
+      <div class="kpi-value">${R$(totalReceita)}</div>
+      <div class="kpi-sub">SMG + PN acumulado</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#e6f6f5">📈</div>
+      <div class="kpi-label">Lucro Líquido</div>
+      <div class="kpi-value ${totalLucro >= 0 ? 'green' : 'red'}">${R$(totalLucro)}</div>
+      <div class="kpi-sub">Após todas as despesas</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#fff8e6">🏠</div>
+      <div class="kpi-label">Total de Reservas</div>
+      <div class="kpi-value">${totalEntradas || '—'}</div>
+      <div class="kpi-sub">Check-ins registrados</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#f5f0ff">💸</div>
+      <div class="kpi-label">Comissões Pagas</div>
+      <div class="kpi-value red">${R$(totalComissao)}</div>
+      <div class="kpi-sub">Plataformas e gestão</div>
+    </div>
+  `;
+}
+
+// ── Receita Chart ─────────────────────────────────────────
+function renderChartReceita(data) {
+  const smg = data.smg || [];
+  const pn  = data.pn  || [];
+
+  const mesesOrdem = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+  // Coleta todos os meses presentes e ordena jan→dez
+  const seen = new Set();
+  [...smg, ...pn].forEach(r => { if (r.mes) seen.add(r.mes.toLowerCase().split('/')[0].trim().substring(0,3)); });
+  const months = mesesOrdem.filter(m => seen.has(m));
+
+  // Encontra o registro pelo prefixo do mês
+  const find = (arr, m) => arr.find(r => r.mes && r.mes.toLowerCase().startsWith(m));
+
+  destroyChart('receita');
+  charts.receita = new Chart(document.getElementById('chartReceita'), {
+    type: 'bar',
+    data: {
+      labels: months.map(m => m.charAt(0).toUpperCase() + m.slice(1)),
+      datasets: [
+        {
+          label: 'SMG',
+          data: months.map(m => (find(smg, m) || {}).receita || 0),
+          backgroundColor: 'rgba(79,142,247,0.85)',
+          borderRadius: 6,
+          barPercentage: 0.7,
+          categoryPercentage: 0.7,
+        },
+        {
+          label: 'PN',
+          data: months.map(m => (find(pn, m) || {}).receita || 0),
+          backgroundColor: 'rgba(0,201,167,0.75)',
+          borderRadius: 6,
+          barPercentage: 0.45,
+          categoryPercentage: 0.7,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, color: '#8b92a5' } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#8b92a5' } },
+        y: {
+          grid: { color: '#2a2d3a' },
+          ticks: { color: '#8b92a5', callback: v => 'R$' + (v / 1000).toFixed(0) + 'k' }
+        }
+      }
+    }
+  });
+}
+
+// ── Despesas Donut ────────────────────────────────────────
+let _despData = null;
+let _despView = 'smg';
+
+function setDespView(view) {
+  _despView = view;
+  document.getElementById('btnDespSMG').classList.toggle('active', view === 'smg');
+  document.getElementById('btnDespPN').classList.toggle('active', view === 'pn');
+  if (_despData) renderChartDespesas(_despData);
+}
+
+function renderChartDespesas(data) {
+  _despData = data;
+  const rows = _despView === 'smg' ? (data.smg || []) : (data.pn || []);
+  const sum = key => rows.reduce((s, r) => s + (r[key] || 0), 0);
+
+  const isSMG = _despView === 'smg';
+  const labels = isSMG
+    ? ['Limpeza', 'Lavanderia', 'Comissão', 'Outros', 'Desp. Fixas']
+    : ['Limpeza', 'Lavanderia', 'Comissão', 'Outros'];
+  const valores = isSMG
+    ? [sum('limpeza'), sum('lavanderia'), sum('comissao'), sum('outros'), sum('desp_fixas')]
+    : [sum('limpeza'), sum('lavanderia'), sum('comissao'), sum('outros')];
+
+  destroyChart('despesas');
+  charts.despesas = new Chart(document.getElementById('chartDespesas'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: valores,
+        backgroundColor: ['#4f8ef7', '#FC642D', '#FFB400', '#00c9a7', '#8b92a5'],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 11, padding: 12, font: { size: 12 }, color: '#8b92a5' } },
+        tooltip: { callbacks: { label: ctx => ' ' + R$(ctx.raw) } }
+      }
+    }
+  });
+}
+
+// ── Lucro Line Chart ──────────────────────────────────────
+let _lucroData = null;
+let _lucroView = 'smg';
+
+function setLucroView(view) {
+  _lucroView = view;
+  document.getElementById('btnLucroSMG').classList.toggle('active', view === 'smg');
+  document.getElementById('btnLucroPN').classList.toggle('active', view === 'pn');
+  if (_lucroData) renderChartLucro(_lucroData);
+}
+
+function renderChartLucro(data) {
+  _lucroData = data;
+  const rows = (_lucroView === 'smg' ? data.smg : data.pn || []).filter(r => r.liquido != null && r.liquido !== 0);
+  const label = _lucroView === 'smg' ? 'Lucro Líquido SMG' : 'Lucro Líquido PN';
+
+  destroyChart('lucro');
+  charts.lucro = new Chart(document.getElementById('chartLucro'), {
+    type: 'line',
+    data: {
+      labels: rows.map(r => r.mes),
+      datasets: [{
+        label,
+        data: rows.map(r => r.liquido),
+        borderColor: '#00c9a7',
+        backgroundColor: 'rgba(0,201,167,0.1)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 5,
+        pointBackgroundColor: '#00c9a7',
+        pointBorderColor: '#1a1d27',
+        pointBorderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#8b92a5' } },
+        y: {
+          grid: { color: '#2a2d3a' },
+          ticks: { color: '#8b92a5', callback: v => 'R$' + (v / 1000).toFixed(1) + 'k' }
+        }
+      }
+    }
+  });
+}
+
+// ── Tables ────────────────────────────────────────────────
+function renderTableSMG(data) {
+  const rows = data.smg || [];
+  document.getElementById('bodySMG').innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td><strong>${r.mes}</strong></td>
+      <td>${N(r.entradas)}</td>
+      <td>${R$(r.receita)}</td>
+      <td>${R$(r.comissao)}</td>
+      <td>${R$(r.limpeza)}</td>
+      <td>${R$(r.lavanderia)}</td>
+      <td>${R$(r.outros)}</td>
+      <td>${R$(r.desp_fixas)}</td>
+      <td>${liquidoBadge(r.liquido)}</td>
+    </tr>`).join('')
+  : '<tr><td colspan="9" class="empty">Sem dados ainda</td></tr>';
+}
+
+function renderTablePN(data) {
+  const rows = data.pn || [];
+  document.getElementById('bodyPN').innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td><strong>${r.mes}</strong></td>
+      <td>${N(r.entradas)}</td>
+      <td>${R$(r.receita)}</td>
+      <td>${R$(r.comissao)}</td>
+      <td>${R$(r.lavanderia)}</td>
+      <td>${R$(r.limpeza)}</td>
+      <td>${R$(r.outros)}</td>
+      <td>${liquidoBadge(r.liquido)}</td>
+    </tr>`).join('')
+  : '<tr><td colspan="8" class="empty">Sem dados ainda</td></tr>';
+}
+
+function renderTableComissoes(data) {
+  const mesesPt = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const now = new Date();
+  const mesAtual = mesesPt[now.getMonth()];
+  const anoAtual = now.getFullYear();
+
+  const rows = (data.comissoes || []).filter(r => {
+    if (!r.mes) return false;
+    const partes = r.mes.toLowerCase().split('/');
+    const mesStr = partes[0].trim().substring(0, 3);
+    const ano = partes[1] ? parseInt(partes[1].trim()) : anoAtual;
+    const idxMes = mesesPt.indexOf(mesStr);
+    const idxAtual = mesesPt.indexOf(mesAtual);
+    if (idxMes < 0) return true;
+    if (ano < anoAtual) return true;
+    if (ano === anoAtual && idxMes <= idxAtual) return true;
+    return false;
+  });
+
+  document.getElementById('bodyComissoes').innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td><strong>${r.mes}</strong></td>
+      <td>${R$(r.smg)}</td>
+      <td>${R$(r.pipa)}</td>
+      <td>${R$(r.pn)}</td>
+      <td><strong>${R$(r.total)}</strong></td>
+    </tr>`).join('')
+  : '<tr><td colspan="5" class="empty">Sem dados ainda</td></tr>';
+}
+
+// ── Lançamentos ───────────────────────────────────────────
+let _lancamentos = {};
+let _dashData    = null;
+const MESES_LISTA = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const CAT_LABEL   = { receita:'Receita', limpeza:'Limpeza', lavanderia:'Lavanderia', comissao:'Comissão', desp_fixas:'Desp. Fixas', outros:'Outros' };
+
+function populateMesSelects() {
+  const now = new Date();
+  const opts = [];
+  for (let i = -14; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const label = `${MESES_LISTA[d.getMonth()]}/${String(d.getFullYear()).slice(-2)}`;
+    opts.push(label);
+  }
+  const html = opts.map(m => `<option value="${m}">${m}</option>`).join('');
+  ['mmMes','fMes'].forEach(id => { document.getElementById(id).innerHTML = html; });
+  const cur = `${MESES_LISTA[now.getMonth()]}/${String(now.getFullYear()).slice(-2)}`;
+  document.getElementById('mmMes').value = cur;
+  document.getElementById('fMes').value  = cur;
+  document.getElementById('fData').value = now.toISOString().split('T')[0];
+}
+
+function mesMatch(rowMes, lancMes) {
+  if (!rowMes || !lancMes) return false;
+  const rp = rowMes.toLowerCase().split('/');
+  const lp = lancMes.toLowerCase().split('/');
+  return rp[0].trim().substring(0,3) === lp[0].trim().substring(0,3) &&
+         (!rp[1] || !lp[1] || rp[1].trim().slice(-2) === lp[1].trim().slice(-2));
+}
+
+function mergeLancamentos(data) {
+  const d = JSON.parse(JSON.stringify(data));
+  Object.values(_lancamentos).forEach(l => {
+    const arr = l.imovel === 'smg' ? d.smg : d.pn;
+    if (!arr) return;
+    let row = arr.find(r => mesMatch(r.mes, l.mes));
+    if (!row) {
+      // Cria linha do mês se ainda não existe no Excel
+      row = { mes: l.mes, entradas:0, receita:0, comissao:0, limpeza:0, lavanderia:0, outros:0, desp_fixas:0, liquido:0 };
+      arr.push(row);
+    }
+    if (l.categoria === 'receita') {
+      row.receita = (row.receita || 0) + (l.tipo === 'entrada' ? l.valor : -l.valor);
+    } else {
+      row[l.categoria] = (row[l.categoria] || 0) + (l.tipo === 'saida' ? l.valor : -l.valor);
+    }
+    // Recalcula lucro líquido
+    row.liquido = (row.receita||0) - (row.comissao||0) - (row.limpeza||0) - (row.lavanderia||0) - (row.outros||0) - (l.imovel==='smg' ? (row.desp_fixas||0) : 0);
+  });
+  return d;
+}
+
+function renderMesMes() {
+  const imovel = document.getElementById('mmImovel').value;
+  const mes    = document.getElementById('mmMes').value;
+  document.getElementById('mmTitle').textContent = `Lançamentos — ${imovel.toUpperCase()} ${mes}`;
+
+  const rows = [];
+
+  // Transações do Excel (somente leitura)
+  if (_dashData && _dashData.mesames) {
+    _dashData.mesames
+      .filter(t => t.imovel === imovel && mesMatch(mes, t.mes))
+      .forEach(t => {
+        rows.push({ data: t.data, motivo: t.motivo, categoria: '—', entrada: t.entrada || 0, saida: t.saida || 0, fonte: 'excel', id: null });
+      });
+  }
+
+  // Lançamentos manuais
+  Object.entries(_lancamentos)
+    .filter(([, l]) => l.imovel === imovel && l.mes === mes)
+    .forEach(([id, l]) => {
+      const dataFmt = l.data ? l.data.split('-').reverse().join('/') : '—';
+      const entrada = l.tipo === 'entrada' ? l.valor : 0;
+      const saida   = l.tipo === 'saida'   ? l.valor : 0;
+      rows.push({ data: dataFmt, motivo: l.motivo, categoria: CAT_LABEL[l.categoria] || l.categoria, entrada, saida, fonte: 'manual', id });
+    });
+
+  // Ordena por data
+  rows.sort((a, b) => (a.data||'').localeCompare(b.data||''));
+
+  const totalEntradas = rows.reduce((s, r) => s + (r.entrada || 0), 0);
+  const totalSaidas   = rows.reduce((s, r) => s + (r.saida   || 0), 0);
+  const lucro         = totalEntradas - totalSaidas;
+
+  const rowsHtml = rows.length
+    ? rows.map(r => `
+        <tr>
+          <td>${r.data || '—'}</td>
+          <td>${r.motivo}</td>
+          <td>${r.categoria}</td>
+          <td style="color:var(--green); font-weight:600">${r.entrada > 0 ? R$(r.entrada) : '—'}</td>
+          <td style="color:#ff5555; font-weight:600">${r.saida > 0 ? R$(r.saida) : '—'}</td>
+          <td>${r.fonte==='manual'
+            ? `<button class="btn-delete" onclick="deleteLancamento('${r.id}')" title="Excluir">🗑</button>`
+            : `<span style="font-size:11px;color:var(--muted)">Excel</span>`
+          }</td>
+        </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">Nenhum lançamento neste mês</td></tr>';
+
+  const totalHtml = rows.length ? `
+    <tr style="border-top: 2px solid var(--border); background: rgba(255,255,255,0.02)">
+      <td colspan="3" style="text-align:right; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; padding-right:16px">Total</td>
+      <td style="color:var(--green); font-weight:800; font-size:15px">${R$(totalEntradas)}</td>
+      <td style="color:#ff5555; font-weight:800; font-size:15px">${R$(totalSaidas)}</td>
+      <td></td>
+    </tr>
+    <tr style="background: rgba(255,255,255,0.02)">
+      <td colspan="3" style="text-align:right; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; padding-right:16px">Lucro</td>
+      <td colspan="2" style="color:var(--text); font-weight:800; font-size:16px">${R$(lucro)}</td>
+      <td></td>
+    </tr>` : '';
+
+  document.getElementById('bodyMesMes').innerHTML = rowsHtml + totalHtml;
+}
+
+async function addLancamento(e) {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  const lancamento = {
+    imovel:    document.getElementById('fImovel').value,
+    mes:       document.getElementById('fMes').value,
+    data:      document.getElementById('fData').value,
+    motivo:    document.getElementById('fMotivo').value.trim(),
+    categoria: document.getElementById('fCategoria').value,
+    tipo:      document.getElementById('fTipo').value,
+    valor:     parseFloat(document.getElementById('fValor').value),
+    criado_em: new Date().toISOString(),
+  };
+  await db.ref('/lancamentos').push(lancamento);
+  document.getElementById('fMotivo').value = '';
+  document.getElementById('fValor').value  = '';
+  document.getElementById('mmImovel').value = lancamento.imovel;
+  document.getElementById('mmMes').value    = lancamento.mes;
+  renderMesMes();
+  btn.disabled = false; btn.textContent = 'Adicionar Lançamento';
+}
+
+async function deleteLancamento(id) {
+  if (!confirm('Excluir este lançamento?')) return;
+  await db.ref('/lancamentos/' + id).remove();
+}
+
+// ── Master update ─────────────────────────────────────────
+function update(data) {
+  if (!data) return;
+  _dashData = data;
+
+  document.getElementById('loading').style.display   = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  const merged = mergeLancamentos(data);
+
+  renderKPIs(merged);
+  renderChartReceita(merged);
+  renderChartDespesas(merged);
+  renderChartLucro(merged);
+  renderTableSMG(merged);
+  renderTablePN(merged);
+  renderTableComissoes(merged);
+  renderMesMes();
+
+  const dot = document.getElementById('dot');
+  const txt = document.getElementById('statusText');
+  dot.className = 'dot live';
+  const ts = data.ultima_atualizacao
+    ? new Date(data.ultima_atualizacao).toLocaleString('pt-BR') : '—';
+  txt.textContent = 'Ao vivo · ' + ts;
+}
+
+// ── Firebase listeners ────────────────────────────────────
+populateMesSelects();
+
+db.ref('/lancamentos').on('value', snap => {
+  _lancamentos = snap.val() || {};
+  if (_dashData) { update(_dashData); renderMesMes(); }
+});
+
+db.ref('/dashboard').on('value', snap => {
+  update(snap.val());
+}, err => {
+  document.getElementById('dot').className = 'dot error';
+  document.getElementById('statusText').textContent = 'Erro de conexão';
+  console.error(err);
+});
+</script>
+</body>
+</html>
