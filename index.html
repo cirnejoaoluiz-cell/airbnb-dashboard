@@ -378,12 +378,19 @@ tbody tr:hover td { background: #22263a; }
   }
   #tab-comissoes table { min-width: 380px; font-size: 12px; }
 
-  /* Mês a Mês — tudo menor, sem scroll horizontal */
+  /* Mês a Mês — oculta coluna Categoria, tudo menor */
   #tab-mesames .table-card { padding: 12px 8px; }
-  #tab-mesames table { font-size: 11px; width: 100%; }
-  #tab-mesames th { padding: 6px 6px; font-size: 10px; }
-  #tab-mesames td { padding: 7px 6px; }
-  #tab-mesames .badge { font-size: 10px; padding: 2px 6px; }
+  #tab-mesames table { font-size: 11px; width: 100%; table-layout: fixed; }
+  #tab-mesames th { padding: 5px 4px; font-size: 10px; }
+  #tab-mesames td { padding: 6px 4px; }
+  #tab-mesames th:nth-child(3),
+  #tab-mesames td:nth-child(3) { display: none; }
+  #tab-mesames th:nth-child(1) { width: 18%; }
+  #tab-mesames th:nth-child(2) { width: 24%; }
+  #tab-mesames th:nth-child(4) { width: 22%; }
+  #tab-mesames th:nth-child(5) { width: 22%; }
+  #tab-mesames th:nth-child(6) { width: 14%; }
+  #tab-mesames .badge { font-size: 10px; padding: 2px 5px; }
   #tab-mesames .form-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   #tab-mesames .btn-primary { width: 100%; padding: 12px; }
 
@@ -393,14 +400,23 @@ tbody tr:hover td { background: #22263a; }
 }
 
 /* ── iPhone landscape — SMG/PN mostram tudo ── */
-@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) and (max-height: 500px) {
   .header { flex-wrap: nowrap; height: 50px; padding: 0 16px; }
+  .logo h1 { font-size: 15px; }
+  .logo span { font-size: 11px; }
+  .main { padding: 8px 14px; }
+  .tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .tab { white-space: nowrap; flex-shrink: 0; padding: 8px 14px; font-size: 13px; }
+  .kpi-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .kpi-card { padding: 10px 12px; }
+  .kpi-value { font-size: 16px; }
+  /* SMG e PN — mostram tudo em landscape */
   #tab-smg .table-card,
-  #tab-pn .table-card { overflow-x: visible; }
+  #tab-pn .table-card { overflow-x: unset; }
   #tab-smg table,
-  #tab-pn table { min-width: unset; width: 100%; font-size: 12px; }
-  .main { padding: 10px 16px; }
-  .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+  #tab-pn table { min-width: unset; width: 100%; font-size: 11px; }
+  #tab-smg th, #tab-smg td,
+  #tab-pn  th, #tab-pn  td { padding: 6px 7px; }
 }
 </style>
 </head>
@@ -506,14 +522,14 @@ tbody tr:hover td { background: #22263a; }
         <h3>Comissões por Mês e Imóvel</h3>
         <table>
           <thead><tr>
-            <th>Mês</th><th>SMG</th><th>Pipa</th><th>PN</th><th>Total</th><th></th>
+            <th>Mês</th><th>SMG</th><th>Pipa</th><th>PN</th><th>Total</th>
           </tr></thead>
           <tbody id="bodyComissoes"></tbody>
         </table>
       </div>
 
       <div class="table-card">
-        <h3>➕ Nova Comissão</h3>
+        <h3>➕ Comissão Pipa</h3>
         <form id="formComissao" onsubmit="addComissao(event)" style="margin-top:16px">
           <div class="form-grid">
             <div class="form-group">
@@ -521,19 +537,11 @@ tbody tr:hover td { background: #22263a; }
               <select id="cMes"></select>
             </div>
             <div class="form-group">
-              <label>SMG (R$)</label>
-              <input type="number" id="cSMG" min="0" step="0.01" placeholder="0.00">
-            </div>
-            <div class="form-group">
               <label>Pipa (R$)</label>
-              <input type="number" id="cPipa" min="0" step="0.01" placeholder="0.00">
-            </div>
-            <div class="form-group">
-              <label>PN (R$)</label>
-              <input type="number" id="cPN" min="0" step="0.01" placeholder="0.00">
+              <input type="number" id="cPipa" min="0" step="0.01" placeholder="0.00" required>
             </div>
           </div>
-          <button type="submit" class="btn-primary">Adicionar Comissão</button>
+          <button type="submit" class="btn-primary">Adicionar</button>
         </form>
       </div>
     </div>
@@ -906,60 +914,45 @@ function renderTablePN(data) {
 
 function renderTableComissoes(data) {
   const mesesOrdem = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const now = new Date();
-  const idxAtual = now.getMonth();
-  const anoAtual = now.getFullYear();
+  const now    = new Date();
+  const anoStr = String(now.getFullYear()).slice(-2);
 
-  function dentroAtual(mes) {
-    const n = normalizeMes(mes);
-    if (!n) return false;
-    const [m, a] = n.split('/');
-    const idx = mesesOrdem.indexOf(m);
-    const ano = a ? (parseInt(a) + (parseInt(a) < 50 ? 2000 : 1900)) : anoAtual;
-    return ano < anoAtual || (ano === anoAtual && idx <= idxAtual);
-  }
+  // Gera todos os 12 meses do ano atual
+  const rows = mesesOrdem.map((m, idx) => {
+    const mesKey = `${m}/${anoStr}`;
 
-  // Mapa por mês normalizado
-  const mesMap = {};
+    // SMG comissão — vem da aba SMG (dados mesclados)
+    const smgRow = (data.smg || []).find(r => mesMatch(r.mes, mesKey));
+    const smgVal = smgRow ? (smgRow.comissao || 0) : 0;
 
-  // Dados históricos do Excel
-  (data.comissoes || []).filter(r => dentroAtual(r.mes)).forEach(r => {
-    const key = normalizeMes(r.mes);
-    if (!mesMap[key]) mesMap[key] = { mes: r.mes, smg: 0, pipa: 0, pn: 0, manualIds: [] };
-    mesMap[key].smg  += r.smg  || 0;
-    mesMap[key].pipa += r.pipa || 0;
-    mesMap[key].pn   += r.pn   || 0;
+    // PN comissão — vem da aba PN (dados mesclados)
+    const pnRow  = (data.pn  || []).find(r => mesMatch(r.mes, mesKey));
+    const pnVal  = pnRow  ? (pnRow.comissao  || 0) : 0;
+
+    // Pipa — apenas manual
+    const pipaEntries = Object.entries(_comissoesManual).filter(([, r]) => mesMatch(r.mes, mesKey));
+    const pipaVal = pipaEntries.reduce((s, [, r]) => s + (r.pipa || 0), 0);
+    const pipaIds = pipaEntries.map(([id]) => id);
+
+    return { mes: mesKey, smg: smgVal, pipa: pipaVal, pn: pnVal, pipaIds, idx };
   });
 
-  // Entradas manuais
-  Object.entries(_comissoesManual).filter(([, r]) => dentroAtual(r.mes)).forEach(([id, r]) => {
-    const key = normalizeMes(r.mes);
-    if (!mesMap[key]) mesMap[key] = { mes: r.mes, smg: 0, pipa: 0, pn: 0, manualIds: [] };
-    mesMap[key].smg  += r.smg  || 0;
-    mesMap[key].pipa += r.pipa || 0;
-    mesMap[key].pn   += r.pn   || 0;
-    mesMap[key].manualIds.push(id);
-  });
+  // Mostra apenas meses até o atual (ou com dados)
+  const visibles = rows.filter(r => r.idx <= now.getMonth() || r.smg > 0 || r.pipa > 0 || r.pn > 0);
 
-  const rows = Object.values(mesMap).sort((a, b) => {
-    const ai = mesesOrdem.indexOf((normalizeMes(a.mes).split('/')[0]));
-    const bi = mesesOrdem.indexOf((normalizeMes(b.mes).split('/')[0]));
-    return ai - bi;
-  });
-
-  document.getElementById('bodyComissoes').innerHTML = rows.length
-    ? rows.map(r => `
+  document.getElementById('bodyComissoes').innerHTML = visibles.length
+    ? visibles.map(r => `
         <tr>
           <td><strong>${r.mes}</strong></td>
           <td>${R$(r.smg)}</td>
-          <td>${R$(r.pipa)}</td>
+          <td>
+            ${r.pipa > 0 ? R$(r.pipa) : '—'}
+            ${r.pipaIds.map(id => `<button class="btn-delete" onclick="deleteComissao('${id}')" title="Excluir">🗑</button>`).join('')}
+          </td>
           <td>${R$(r.pn)}</td>
           <td><strong>${R$(r.smg + r.pipa + r.pn)}</strong></td>
-          <td>${r.manualIds.length
-            ? r.manualIds.map(id => `<button class="btn-delete" onclick="deleteComissao('${id}')" title="Excluir">🗑</button>`).join('')
-            : ''}</td>
         </tr>`).join('')
-    : '<tr><td colspan="6" class="empty">Sem dados ainda</td></tr>';
+    : '<tr><td colspan="5" class="empty">Sem dados ainda</td></tr>';
 }
 
 async function addComissao(e) {
@@ -968,14 +961,12 @@ async function addComissao(e) {
   btn.disabled = true; btn.textContent = 'Salvando...';
   const entry = {
     mes:       document.getElementById('cMes').value,
-    smg:       parseFloat(document.getElementById('cSMG').value)  || 0,
     pipa:      parseFloat(document.getElementById('cPipa').value) || 0,
-    pn:        parseFloat(document.getElementById('cPN').value)   || 0,
     criado_em: new Date().toISOString(),
   };
   await db.ref('/comissoes_manual').push(entry);
-  ['cSMG','cPipa','cPN'].forEach(id => document.getElementById(id).value = '');
-  btn.disabled = false; btn.textContent = 'Adicionar Comissão';
+  document.getElementById('cPipa').value = '';
+  btn.disabled = false; btn.textContent = 'Adicionar';
 }
 
 async function deleteComissao(id) {
