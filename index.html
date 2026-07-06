@@ -990,11 +990,11 @@ function populateMesSelects() {
     opts.push(label);
   }
   const html = opts.map(m => `<option value="${m}">${m}</option>`).join('');
-  ['mmMes','fMes','cMes'].forEach(id => { document.getElementById(id).innerHTML = html; });
+  ['mmMes','fMes','cMes'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = html; });
   const cur = `${MESES_LISTA[now.getMonth()]}/${String(now.getFullYear()).slice(-2)}`;
-  document.getElementById('mmMes').value = cur;
-  document.getElementById('fMes').value  = cur;
-  document.getElementById('fData').value = now.toISOString().split('T')[0];
+  const mmEl = document.getElementById('mmMes'); if (mmEl) mmEl.value = cur;
+  const fEl  = document.getElementById('fMes');  if (fEl)  fEl.value  = cur;
+  const fdEl = document.getElementById('fData'); if (fdEl) fdEl.value = now.toISOString().split('T')[0];
 }
 
 function normalizeMes(mes) {
@@ -1178,7 +1178,7 @@ function update(data) {
 }
 
 // ── Firebase listeners ────────────────────────────────────
-populateMesSelects();
+try { populateMesSelects(); } catch(e) { console.warn('populateMesSelects error:', e); }
 
 db.ref('/lancamentos').on('value', snap => {
   _lancamentos = snap.val() || {};
