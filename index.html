@@ -1191,11 +1191,15 @@ db.ref('/comissoes_manual').on('value', snap => {
 });
 
 db.ref('/dashboard').on('value', snap => {
-  update(snap.val());
+  // Se não há dados do Excel, usa estrutura vazia para que o dashboard carregue
+  const val = snap.val() || { smg: [], pn: [], comissoes: [], mesames: [], ultima_atualizacao: null };
+  update(val);
 }, err => {
   document.getElementById('dot').className = 'dot error';
   document.getElementById('statusText').textContent = 'Erro de conexão';
   console.error(err);
+  // Mesmo com erro, mostra o dashboard com dados vazios
+  update({ smg: [], pn: [], comissoes: [], mesames: [], ultima_atualizacao: null });
 });
 </script>
 </body>
