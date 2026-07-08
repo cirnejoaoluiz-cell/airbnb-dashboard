@@ -575,13 +575,6 @@ tbody tr:hover td { background: #22263a; }
         <form id="formLancamento" onsubmit="addLancamento(event)" style="margin-top:16px">
           <div class="form-grid">
             <div class="form-group">
-              <label>Imóvel</label>
-              <select id="fImovel">
-                <option value="smg">SMG</option>
-                <option value="pn">PN</option>
-              </select>
-            </div>
-            <div class="form-group">
               <label>Dia</label>
               <input type="number" id="fDia" min="1" max="31" placeholder="ex: 15" required>
             </div>
@@ -1120,10 +1113,11 @@ async function addLancamento(e) {
   const btn = e.target.querySelector('button[type=submit]');
   btn.disabled = true; btn.textContent = 'Salvando...';
 
-  const mes       = document.getElementById('mmMes').value;       // mês do filtro
+  const mes       = document.getElementById('mmMes').value;
+  const imovelAuto = document.getElementById('mmImovel').value;    // imóvel do filtro
   const dia       = String(document.getElementById('fDia').value).padStart(2, '0');
   const categoria = document.getElementById('fCategoria').value;
-  const tipo      = categoria === 'receita' ? 'entrada' : 'saida'; // automático
+  const tipo      = categoria === 'receita' ? 'entrada' : 'saida';
 
   // Constrói data no formato YYYY-MM-DD a partir do mês selecionado (ex: "jul/26")
   const [mesAbr, anoAbr] = mes.split('/');
@@ -1132,7 +1126,7 @@ async function addLancamento(e) {
   const dataFmt = `${anoFull}-${mesIdx}-${dia}`;
 
   const lancamento = {
-    imovel:    document.getElementById('fImovel').value,
+    imovel:    imovelAuto,
     mes,
     data:      dataFmt,
     motivo:    document.getElementById('fMotivo').value.trim(),
