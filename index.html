@@ -1069,12 +1069,12 @@ function renderMesMes() {
 
   const rows = [];
 
-  // Transações do Excel (somente leitura)
+  // Transações do Excel
   if (_dashData && _dashData.mesames) {
     _dashData.mesames
-      .filter(t => t.imovel === imovel && mesMatch(mes, t.mes))
-      .forEach(t => {
-        rows.push({ data: t.data, motivo: t.motivo, categoria: '—', entrada: t.entrada || 0, saida: t.saida || 0, fonte: 'excel', id: null });
+      .forEach((t, idx) => {
+        if (t && t.imovel === imovel && mesMatch(mes, t.mes))
+          rows.push({ data: t.data, motivo: t.motivo, categoria: '—', entrada: t.entrada || 0, saida: t.saida || 0, fonte: 'excel', id: idx });
       });
   }
 
@@ -1105,7 +1105,7 @@ function renderMesMes() {
           <td style="color:#ff5555; font-weight:600">${r.saida > 0 ? R$(r.saida) : '—'}</td>
           <td>${r.fonte==='manual'
             ? `<button class="btn-delete" onclick="deleteLancamento('${r.id}')" title="Excluir">🗑</button>`
-            : `<span style="font-size:11px;color:var(--muted)">Excel</span>`
+            : `<button class="btn-delete" onclick="deleteExcelEntry(${r.id})" title="Excluir">🗑</button>`
           }</td>
         </tr>`).join('')
     : '<tr><td colspan="6" class="empty">Nenhum lançamento neste mês</td></tr>';
@@ -1152,6 +1152,11 @@ async function addLancamento(e) {
 async function deleteLancamento(id) {
   if (!confirm('Excluir este lançamento?')) return;
   await db.ref('/lancamentos/' + id).remove();
+}
+
+async function deleteExcelEntry(idx) {
+  if (!confirm('Excluir este dado do Excel?')) return;
+  await db.ref('/dashboard/mesames/' + idx).remove();
 }
 
 // ── Master update ─────────────────────────────────────────
