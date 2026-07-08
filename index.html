@@ -1044,6 +1044,7 @@ function mergeLancamentos(data) {
     }
     if (l.categoria === 'receita') {
       row.receita = (row.receita || 0) + (l.tipo === 'entrada' ? l.valor : -l.valor);
+      if (l.tipo === 'entrada') row.entradas = (row.entradas || 0) + 1;
     } else {
       row[l.categoria] = (row[l.categoria] || 0) + (l.tipo === 'saida' ? l.valor : -l.valor);
     }
