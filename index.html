@@ -695,7 +695,9 @@ function renderKPIs(data) {
   const filtrado = [...smg, ...pn].filter(r => dentroDoMesAtual(r.mes));
   const totalReceita  = filtrado.reduce((s, r) => s + (r.receita  || 0), 0);
   const totalLucro    = filtrado.reduce((s, r) => s + (r.liquido  || 0), 0);
-  const totalComissao = filtrado.reduce((s, r) => s + (r.comissao || 0), 0);
+  const totalComissaoSMGPN = filtrado.reduce((s, r) => s + (r.comissao || 0), 0);
+  const totalPipa = Object.values(_comissoesManual).filter(r => dentroDoMesAtual(r.mes)).reduce((s, r) => s + (r.pipa || 0), 0);
+  const totalComissao = totalComissaoSMGPN + totalPipa;
   // Total de reservas = entradas históricas do Excel + lançamentos de receita entrada
   const totalEntradas = filtrado.reduce((s, r) => s + (r.entradas || 0), 0)
     + Object.values(_lancamentos).filter(l =>
@@ -725,7 +727,7 @@ function renderKPIs(data) {
       <div class="kpi-icon" style="background:#f5f0ff">💸</div>
       <div class="kpi-label">Comissões Pagas</div>
       <div class="kpi-value red">${R$(totalComissao)}</div>
-      <div class="kpi-sub">Plataformas e gestão</div>
+      <div class="kpi-sub">SMG + PN + Pipa</div>
     </div>
   `;
 }
