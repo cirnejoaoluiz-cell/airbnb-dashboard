@@ -582,12 +582,8 @@ tbody tr:hover td { background: #22263a; }
               </select>
             </div>
             <div class="form-group">
-              <label>Mês</label>
-              <select id="fMes"></select>
-            </div>
-            <div class="form-group">
-              <label>Data</label>
-              <input type="date" id="fData" required>
+              <label>Dia</label>
+              <input type="number" id="fDia" min="1" max="31" placeholder="ex: 15" required>
             </div>
             <div class="form-group">
               <label>Motivo</label>
@@ -602,13 +598,6 @@ tbody tr:hover td { background: #22263a; }
                 <option value="comissao">Comissão</option>
                 <option value="desp_fixas">Desp. Fixas</option>
                 <option value="outros">Outros</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Tipo</label>
-              <select id="fTipo">
-                <option value="saida">Saída (despesa)</option>
-                <option value="entrada">Entrada (receita)</option>
               </select>
             </div>
             <div class="form-group">
@@ -1130,21 +1119,50 @@ async function addLancamento(e) {
   e.preventDefault();
   const btn = e.target.querySelector('button[type=submit]');
   btn.disabled = true; btn.textContent = 'Salvando...';
+
+  const mes       = document.getElementById('mmMes').value;       // mês do filtro
+  const dia       = String(document.getElementById('fDia').value).padStart(2, '0');
+  const categoria = document.getElementById('fCategoria').value;
+  const tipo      = categoria === 'receita' ? 'entrada' : 'saida'; // automático
+
+  // Constrói data no formato YYYY-MM-DD a partir do mês selecionado (ex: "jul/26")
+  const [mesAbr, anoAbr] = mes.split('/');
+  const anoFull = '20' + anoAbr;
+  const mesIdx  = String(MESES_LISTA.indexOf(mesAbr) + 1).padStart(2, '0');
+  const dataFmt = `${anoFull}-${mesIdx}-${dia}`;
+
   const lancamento = {
     imovel:    document.getElementById('fImovel').value,
-    mes:       document.getElementById('fMes').value,
-    data:      document.getElementById('fData').value,
+    mes,
+    data:      dataFmt,
     motivo:    document.getElementById('fMotivo').value.trim(),
-    categoria: document.getElementById('fCategoria').value,
-    tipo:      document.getElementById('fTipo').value,
+    categoria,
+    tipo,
     valor:     parseFloat(document.getElementById('fValor').value),
     criado_em: new Date().toISOString(),
   };
+
   await db.ref('/lancamentos').push(lancamento);
+
+  // Se for receita, lança automaticamente 17,5% como comissão (saída)
+  if (categoria === 'receita') {
+    const comissao = {
+      imovel:    lancamento.imovel,
+      mes,
+      data:      dataFmt,
+      motivo:    'Comissão (17,5%)',
+      categoria: 'comissao',
+      tipo:      'saida',
+      valor:     Math.round(lancamento.valor * 0.175 * 100) / 100,
+      criado_em: new Date().toISOString(),
+    };
+    await db.ref('/lancamentos').push(comissao);
+  }
+
   document.getElementById('fMotivo').value = '';
   document.getElementById('fValor').value  = '';
+  document.getElementById('fDia').value    = '';
   document.getElementById('mmImovel').value = lancamento.imovel;
-  document.getElementById('mmMes').value    = lancamento.mes;
   renderMesMes();
   btn.disabled = false; btn.textContent = 'Adicionar Lançamento';
 }
