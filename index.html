@@ -687,7 +687,8 @@ function renderKPIs(data) {
     if (!mes) return false;
     const partes = mes.toLowerCase().split('/');
     const mesStr = partes[0].trim().substring(0, 3);
-    const ano = partes[1] ? parseInt(partes[1].trim()) : anoAtual2;
+    const anoRaw = partes[1] ? parseInt(partes[1].trim()) : anoAtual2;
+    const ano = anoRaw < 100 ? 2000 + anoRaw : anoRaw;
     const idx = mesesPt2.indexOf(mesStr);
     if (idx < 0) return true;
     return ano < anoAtual2 || (ano === anoAtual2 && idx <= idxAtual2);
