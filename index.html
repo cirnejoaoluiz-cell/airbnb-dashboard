@@ -1181,14 +1181,14 @@ function update(data) {
 
   const merged = mergeLancamentos(data);
 
-  renderKPIs(merged);
-  renderChartReceita(merged);
-  renderChartDespesas(merged);
-  renderChartLucro(merged);
-  renderTableSMG(merged);
-  renderTablePN(merged);
-  renderTableComissoes(merged);
-  renderMesMes();
+  try { renderKPIs(merged); } catch(e) { console.error('renderKPIs', e); }
+  try { renderChartReceita(merged); } catch(e) { console.error('renderChartReceita', e); }
+  try { renderChartDespesas(merged); } catch(e) { console.error('renderChartDespesas', e); }
+  try { renderChartLucro(merged); } catch(e) { console.error('renderChartLucro', e); }
+  try { renderTableSMG(merged); } catch(e) { console.error('renderTableSMG', e); }
+  try { renderTablePN(merged); } catch(e) { console.error('renderTablePN', e); }
+  try { renderTableComissoes(merged); } catch(e) { console.error('renderTableComissoes', e); }
+  try { renderMesMes(); } catch(e) { console.error('renderMesMes', e); }
 
   const dot = document.getElementById('dot');
   const txt = document.getElementById('statusText');
