@@ -1377,37 +1377,44 @@ function mesMatch(a, b) {
   return ma === mb && (!ya || !yb || ya === yb);
 }
 
-// ── Corte Excel → Mês a Mês ───────────────────────────────
-// A partir deste mês (inclusive), SMG/PN/Comissões/KPIs deixam de usar o
-// resumo importado do Excel e passam a ser recalculados do zero somando
-// só o que está na aba Mês a Mês (lançamentos manuais + eventual
-// lançamento antigo do Excel). Antes do corte, o resumo do Excel é
-// mantido exatamente como está, sem misturar com lançamentos manuais.
-const CUTOFF_MES = 'mar/26';
+// ── Excel → Mês a Mês ──────────────────────────────────────
+// Regra: todo mês/imóvel que já tem PELO MENOS UM lançamento manual na
+// aba Mês a Mês passa a ser recalculado do zero só com o que está lá
+// (o resumo antigo do Excel para aquele mês é descartado, pra não somar
+// os dois). Mês sem nenhum lançamento manual fica exatamente como veio
+// do Excel, sem tocar em nada.
+//
+// (Não dá pra usar uma data de corte fixa aqui: os meses antigos do
+// Excel são gravados sem ano, tipo "ago" em vez de "ago/26", então não
+// tem como comparar "a partir de tal mês/ano" de forma confiável.)
 
 function mesParaNumero(mes) {
   const norm = normalizeMes(mes);
   if (!norm) return null;
   const [m, y] = norm.split('/');
   const idx = MESES_LISTA.indexOf(m);
-  if (idx < 0 || !y) return null;
-  return parseInt(y, 10) * 12 + idx;
-}
-
-function apartirDoCorte(mes) {
-  const n = mesParaNumero(mes);
-  const c = mesParaNumero(CUTOFF_MES);
-  return n != null && c != null && n >= c;
+  if (idx < 0) return null;
+  // Mês antigo do Excel sem ano — assume o ano corrente só pra fins de ordenação
+  const ano = y || String(new Date().getFullYear()).slice(-2);
+  return parseInt(ano, 10) * 12 + idx;
 }
 
 function mergeLancamentos(data) {
   const d = JSON.parse(JSON.stringify(data));
 
-  // Descarta o resumo antigo do Excel só para os meses a partir do corte —
-  // eles serão reconstruídos do zero logo abaixo. Meses antes do corte
-  // seguem intocados no array.
-  d.smg = (d.smg || []).filter(r => !apartirDoCorte(r.mes));
-  d.pn  = (d.pn  || []).filter(r => !apartirDoCorte(r.mes));
+  // Meses/imóveis com pelo menos um lançamento manual. Usa mesMatch (não
+  // comparação exata de string) porque o Excel antigo grava o mês sem
+  // ano (ex.: "ago") e o lançamento manual grava com ano (ex.: "ago/26")
+  // — mesMatch já sabe tratar mês sem ano como coringa.
+  const lancamentosArr = Object.values(_lancamentos);
+  function temLancamento(imovel, mes) {
+    return lancamentosArr.some(l => l.imovel === imovel && mesMatch(l.mes, mes));
+  }
+
+  // Descarta o resumo antigo do Excel só nos meses que também têm
+  // lançamento manual — serão reconstruídos do zero logo abaixo.
+  d.smg = (d.smg || []).filter(r => !temLancamento('smg', r.mes));
+  d.pn  = (d.pn  || []).filter(r => !temLancamento('pn', r.mes));
 
   function getRow(arr, mes) {
     let row = arr.find(r => mesMatch(r.mes, mes));
@@ -1421,22 +1428,21 @@ function mergeLancamentos(data) {
   const changedSMG = new Set();
   const changedPN  = new Set();
 
-  // Lançamentos antigos do Excel que ainda estejam em "mesames" dentro do
-  // período de corte — não têm categoria, então a saída inteira vai para
-  // "outros" (o total e o lucro continuam corretos mesmo assim).
+  // Lançamentos antigos do Excel que ainda estejam em "mesames", só nos
+  // meses que também têm lançamento manual — não têm categoria, então a
+  // saída inteira vai para "outros" (o total e o lucro continuam certos).
   (data.mesames || []).forEach(t => {
-    if (!t || !t.mes || !apartirDoCorte(t.mes)) return;
-    const arr = t.imovel === 'smg' ? d.smg : (t.imovel === 'pn' ? d.pn : null);
-    if (!arr) return;
-    const row = getRow(arr, t.mes);
+    if (!t || !t.mes) return;
+    const imovel = t.imovel === 'smg' ? 'smg' : (t.imovel === 'pn' ? 'pn' : null);
+    if (!imovel || !temLancamento(imovel, t.mes)) return;
+    const row = getRow(imovel === 'smg' ? d.smg : d.pn, t.mes);
     if (t.entrada) { row.receita += t.entrada; row.entradas += 1; }
     if (t.saida)   { row.outros  += t.saida; }
-    (t.imovel === 'smg' ? changedSMG : changedPN).add(row);
+    (imovel === 'smg' ? changedSMG : changedPN).add(row);
   });
 
-  // Lançamentos manuais (com categoria) — só entram no resumo a partir do corte
+  // Lançamentos manuais (com categoria)
   Object.values(_lancamentos).forEach(l => {
-    if (!apartirDoCorte(l.mes)) return;
     const isSMG = l.imovel === 'smg';
     const arr   = isSMG ? d.smg : d.pn;
     if (!arr) return;
