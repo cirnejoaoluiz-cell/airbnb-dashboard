@@ -807,7 +807,6 @@ tbody tr:hover td { background: #22263a; }
                 <option value="limpeza">Limpeza</option>
                 <option value="lavanderia">Lavanderia</option>
                 <option value="comissao">Comissão</option>
-                <option value="desp_fixas">Desp. Fixas</option>
                 <option value="outros">Outros</option>
               </select>
             </div>
@@ -1181,13 +1180,8 @@ function renderChartDespesas(data) {
   const rows = _despView === 'smg' ? (data.smg || []) : (data.pn || []);
   const sum = key => rows.reduce((s, r) => s + (r[key] || 0), 0);
 
-  const isSMG = _despView === 'smg';
-  const labels = isSMG
-    ? ['Limpeza', 'Lavanderia', 'Comissão', 'Outros', 'Desp. Fixas']
-    : ['Limpeza', 'Lavanderia', 'Comissão', 'Outros'];
-  const valores = isSMG
-    ? [sum('limpeza'), sum('lavanderia'), sum('comissao'), sum('outros'), sum('desp_fixas')]
-    : [sum('limpeza'), sum('lavanderia'), sum('comissao'), sum('outros')];
+  const labels  = ['Limpeza', 'Lavanderia', 'Comissão', 'Outros'];
+  const valores = [sum('limpeza'), sum('lavanderia'), sum('comissao'), sum('outros')];
 
   destroyChart('despesas');
   charts.despesas = new Chart(document.getElementById('chartDespesas'), {
@@ -1196,7 +1190,7 @@ function renderChartDespesas(data) {
       labels,
       datasets: [{
         data: valores,
-        backgroundColor: ['#4f8ef7', '#FC642D', '#FFB400', '#00c9a7', '#8b92a5'],
+        backgroundColor: ['#4f8ef7', '#FC642D', '#FFB400', '#00c9a7'],
         borderWidth: 0,
         hoverOffset: 6,
       }]
@@ -1471,9 +1465,6 @@ function mergeLancamentos(data) {
     return row;
   }
 
-  const changedSMG = new Set();
-  const changedPN  = new Set();
-
   // Lançamentos antigos do Excel que ainda estejam em "mesames", só nos
   // meses que também têm lançamento manual — não têm categoria, então a
   // saída inteira vai para "outros" (o total e o lucro continuam certos).
@@ -1484,13 +1475,11 @@ function mergeLancamentos(data) {
     const row = getRow(imovel === 'smg' ? d.smg : d.pn, t.mes);
     if (t.entrada) { row.receita += t.entrada; row.entradas += 1; }
     if (t.saida)   { row.outros  += t.saida; }
-    (imovel === 'smg' ? changedSMG : changedPN).add(row);
   });
 
   // Lançamentos manuais (com categoria)
   Object.values(_lancamentos).forEach(l => {
-    const isSMG = l.imovel === 'smg';
-    const arr   = isSMG ? d.smg : d.pn;
+    const arr = l.imovel === 'smg' ? d.smg : d.pn;
     if (!arr) return;
     const row = getRow(arr, l.mes);
     if (l.categoria === 'receita') {
@@ -1499,14 +1488,16 @@ function mergeLancamentos(data) {
     } else {
       row[l.categoria] = (row[l.categoria] || 0) + (l.tipo === 'saida' ? l.valor : -l.valor);
     }
-    (isSMG ? changedSMG : changedPN).add(row);
   });
 
-  // Recalcula lucro líquido uma vez por linha, após todos os lançamentos
-  changedSMG.forEach(row => {
-    row.liquido = (row.receita||0) - (row.comissao||0) - (row.limpeza||0) - (row.lavanderia||0) - (row.outros||0) - (row.desp_fixas||0);
+  // Recalcula o lucro líquido de TODAS as linhas (não só as alteradas
+  // agora) porque a despesa fixa parou de ser contada — inclusive nos
+  // meses antigos do Excel, que já vinham com ela descontada no valor
+  // importado.
+  d.smg.forEach(row => {
+    row.liquido = (row.receita||0) - (row.comissao||0) - (row.limpeza||0) - (row.lavanderia||0) - (row.outros||0);
   });
-  changedPN.forEach(row => {
+  d.pn.forEach(row => {
     row.liquido = (row.receita||0) - (row.comissao||0) - (row.limpeza||0) - (row.lavanderia||0) - (row.outros||0);
   });
 
