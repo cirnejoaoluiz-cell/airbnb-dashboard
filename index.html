@@ -1476,6 +1476,7 @@ function populateMesSelects() {
   const fEl  = document.getElementById('fMes');  if (fEl)  fEl.value  = cur;
   const cEl  = document.getElementById('cMes');  if (cEl)  cEl.value  = cur;
   const fdEl = document.getElementById('fData'); if (fdEl) fdEl.value = now.toISOString().split('T')[0];
+  const fDiaEl = document.getElementById('fDia'); if (fDiaEl) fDiaEl.value = now.getDate();
 }
 
 function normalizeMes(mes) {
@@ -1768,7 +1769,7 @@ async function addLancamento(e) {
 
   document.getElementById('fMotivo').value = '';
   document.getElementById('fValor').value  = '';
-  document.getElementById('fDia').value    = '';
+  document.getElementById('fDia').value    = new Date().getDate();
   document.getElementById('mmImovel').value = lancamento.imovel;
   renderMesMes();
   btn.disabled = false; btn.textContent = 'Adicionar Lançamento';
