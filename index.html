@@ -50,7 +50,8 @@ body {
   background: var(--card);
   border-bottom: 1px solid var(--border);
   padding: 0 32px;
-  height: 64px;
+  padding-top: env(safe-area-inset-top);
+  height: calc(64px + env(safe-area-inset-top));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -494,6 +495,7 @@ tbody tr:hover td { background: #22263a; }
   /* Header */
   .header {
     padding: 8px 14px;
+    padding-top: calc(8px + env(safe-area-inset-top));
     height: auto;
     flex-wrap: wrap;
     gap: 6px;
@@ -575,7 +577,7 @@ tbody tr:hover td { background: #22263a; }
 
 /* ── iPhone landscape — SMG/PN mostram tudo ── */
 @media (orientation: landscape) and (max-height: 500px) {
-  .header { flex-wrap: nowrap; height: 50px; padding: 0 16px; }
+  .header { flex-wrap: nowrap; height: calc(50px + env(safe-area-inset-top)); padding: 0 16px; padding-top: env(safe-area-inset-top); }
   .logo h1 { font-size: 15px; }
   .logo span { font-size: 11px; }
   .main { padding: 8px 14px; }
