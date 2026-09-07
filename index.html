@@ -1377,27 +1377,77 @@ function mesMatch(a, b) {
   return ma === mb && (!ya || !yb || ya === yb);
 }
 
+// ── Corte Excel → Mês a Mês ───────────────────────────────
+// A partir deste mês (inclusive), SMG/PN/Comissões/KPIs deixam de usar o
+// resumo importado do Excel e passam a ser recalculados do zero somando
+// só o que está na aba Mês a Mês (lançamentos manuais + eventual
+// lançamento antigo do Excel). Antes do corte, o resumo do Excel é
+// mantido exatamente como está, sem misturar com lançamentos manuais.
+const CUTOFF_MES = 'mar/26';
+
+function mesParaNumero(mes) {
+  const norm = normalizeMes(mes);
+  if (!norm) return null;
+  const [m, y] = norm.split('/');
+  const idx = MESES_LISTA.indexOf(m);
+  if (idx < 0 || !y) return null;
+  return parseInt(y, 10) * 12 + idx;
+}
+
+function apartirDoCorte(mes) {
+  const n = mesParaNumero(mes);
+  const c = mesParaNumero(CUTOFF_MES);
+  return n != null && c != null && n >= c;
+}
+
 function mergeLancamentos(data) {
   const d = JSON.parse(JSON.stringify(data));
+
+  // Descarta o resumo antigo do Excel só para os meses a partir do corte —
+  // eles serão reconstruídos do zero logo abaixo. Meses antes do corte
+  // seguem intocados no array.
+  d.smg = (d.smg || []).filter(r => !apartirDoCorte(r.mes));
+  d.pn  = (d.pn  || []).filter(r => !apartirDoCorte(r.mes));
+
+  function getRow(arr, mes) {
+    let row = arr.find(r => mesMatch(r.mes, mes));
+    if (!row) {
+      row = { mes, entradas:0, receita:0, comissao:0, limpeza:0, lavanderia:0, outros:0, desp_fixas:0, liquido:0 };
+      arr.push(row);
+    }
+    return row;
+  }
+
   const changedSMG = new Set();
   const changedPN  = new Set();
 
+  // Lançamentos antigos do Excel que ainda estejam em "mesames" dentro do
+  // período de corte — não têm categoria, então a saída inteira vai para
+  // "outros" (o total e o lucro continuam corretos mesmo assim).
+  (data.mesames || []).forEach(t => {
+    if (!t || !t.mes || !apartirDoCorte(t.mes)) return;
+    const arr = t.imovel === 'smg' ? d.smg : (t.imovel === 'pn' ? d.pn : null);
+    if (!arr) return;
+    const row = getRow(arr, t.mes);
+    if (t.entrada) { row.receita += t.entrada; row.entradas += 1; }
+    if (t.saida)   { row.outros  += t.saida; }
+    (t.imovel === 'smg' ? changedSMG : changedPN).add(row);
+  });
+
+  // Lançamentos manuais (com categoria) — só entram no resumo a partir do corte
   Object.values(_lancamentos).forEach(l => {
+    if (!apartirDoCorte(l.mes)) return;
     const isSMG = l.imovel === 'smg';
     const arr   = isSMG ? d.smg : d.pn;
     if (!arr) return;
-    let row = arr.find(r => mesMatch(r.mes, l.mes));
-    if (!row) {
-      row = { mes: l.mes, entradas:0, receita:0, comissao:0, limpeza:0, lavanderia:0, outros:0, desp_fixas:0, liquido:0 };
-      arr.push(row);
-    }
+    const row = getRow(arr, l.mes);
     if (l.categoria === 'receita') {
       row.receita = (row.receita || 0) + (l.tipo === 'entrada' ? l.valor : -l.valor);
       if (l.tipo === 'entrada') row.entradas = (row.entradas || 0) + 1;
     } else {
       row[l.categoria] = (row[l.categoria] || 0) + (l.tipo === 'saida' ? l.valor : -l.valor);
     }
-    if (isSMG) changedSMG.add(row); else changedPN.add(row);
+    (isSMG ? changedSMG : changedPN).add(row);
   });
 
   // Recalcula lucro líquido uma vez por linha, após todos os lançamentos
@@ -1407,6 +1457,10 @@ function mergeLancamentos(data) {
   changedPN.forEach(row => {
     row.liquido = (row.receita||0) - (row.comissao||0) - (row.limpeza||0) - (row.lavanderia||0) - (row.outros||0);
   });
+
+  // Mantém a ordem cronológica (Excel antigo + meses recalculados)
+  d.smg.sort((a, b) => (mesParaNumero(a.mes) ?? 0) - (mesParaNumero(b.mes) ?? 0));
+  d.pn.sort((a, b) => (mesParaNumero(a.mes) ?? 0) - (mesParaNumero(b.mes) ?? 0));
 
   return d;
 }
