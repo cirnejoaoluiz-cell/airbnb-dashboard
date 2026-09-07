@@ -711,7 +711,7 @@ tbody tr:hover td { background: #22263a; }
           <thead><tr>
             <th>Mês</th><th>Reservas</th><th>Receita</th>
             <th>Comissão</th><th>Limpeza</th><th>Lavanderia</th>
-            <th>Outros</th><th>Desp. Fixas</th><th>Lucro Líquido</th>
+            <th>Outros</th><th>Lucro Líquido</th>
           </tr></thead>
           <tbody id="bodySMG"></tbody>
         </table>
@@ -1272,10 +1272,9 @@ function renderTableSMG(data) {
       <td>${R$(r.limpeza)}</td>
       <td>${R$(r.lavanderia)}</td>
       <td>${R$(r.outros)}</td>
-      <td>${R$(r.desp_fixas)}</td>
       <td>${liquidoBadge(r.liquido)}</td>
     </tr>`).join('')
-  : '<tr><td colspan="9" class="empty">Sem dados ainda</td></tr>';
+  : '<tr><td colspan="8" class="empty">Sem dados ainda</td></tr>';
 }
 
 function renderTablePN(data) {
@@ -1432,8 +1431,22 @@ function mesParaNumero(mes) {
   return parseInt(ano, 10) * 12 + idx;
 }
 
+// Descarta linhas "fantasmas" do Excel: quando um mês tem mais de uma
+// linha e uma delas não tem nem receita nem reservas (só carrega, por
+// exemplo, uma despesa fixa duplicada), essa linha vazia é removida —
+// fica só a linha de verdade daquele mês, com seus valores já corretos.
+function limparLinhasFantasmas(arr) {
+  return arr.filter((row, idx) => {
+    const semAtividade = !row.receita && !row.entradas;
+    if (!semAtividade) return true;
+    return !arr.some((outra, j) => j !== idx && mesMatch(outra.mes, row.mes) && (outra.receita || outra.entradas));
+  });
+}
+
 function mergeLancamentos(data) {
   const d = JSON.parse(JSON.stringify(data));
+  d.smg = limparLinhasFantasmas(d.smg || []);
+  d.pn  = limparLinhasFantasmas(d.pn  || []);
 
   // Meses/imóveis com pelo menos um lançamento manual. Usa mesMatch (não
   // comparação exata de string) porque o Excel antigo grava o mês sem
@@ -1597,7 +1610,6 @@ function gerarApuradoPDF() {
     ['Lavanderia', R$(row.lavanderia)],
     ['Outros', R$(row.outros)],
   ];
-  if (imovel === 'smg' && row.desp_fixas) linhas.push(['Despesas Fixas', R$(row.desp_fixas)]);
 
   document.getElementById('printReport').innerHTML = `
     <div class="pr-header">
