@@ -295,6 +295,14 @@ tbody tr:hover td { background: #22263a; }
   border: 1px solid var(--border); border-radius: 8px;
   padding: 8px 14px; font-size: 14px; cursor: pointer;
 }
+.btn-pdf {
+  background: none; color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+  margin-left: auto; transition: border-color 0.2s, transform 0.15s;
+}
+.btn-pdf:hover { border-color: var(--primary); }
+.btn-pdf:active { transform: scale(0.96); }
 .form-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 16px; margin-bottom: 20px;
@@ -594,6 +602,27 @@ tbody tr:hover td { background: #22263a; }
   #tab-smg th, #tab-smg td,
   #tab-pn  th, #tab-pn  td { padding: 6px 7px; }
 }
+
+/* ── Relatório de impressão (apurado em PDF) ── */
+#printReport { display: none; color: #111; background: #fff; }
+.pr-header { text-align: center; margin-bottom: 28px; }
+.pr-header h1 { font-size: 20px; margin-bottom: 4px; color: #111; }
+.pr-header p { font-size: 13px; color: #555; }
+.pr-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.pr-table td { padding: 12px 4px; border-bottom: 1px solid #ddd; color: #222; background: #fff; }
+.pr-table td:last-child { text-align: right; font-weight: 700; }
+.pr-table tr.pr-total td { border-top: 2px solid #222; border-bottom: none; font-size: 17px; padding-top: 16px; }
+.pr-footer { margin-top: 40px; font-size: 11px; color: #888; text-align: center; }
+
+@media print {
+  body * { visibility: hidden; }
+  #printReport, #printReport * { visibility: visible; }
+  #printReport {
+    display: block;
+    position: absolute; top: 0; left: 0; width: 100%;
+    padding: 24px; color: #111; background: #fff;
+  }
+}
 </style>
 </head>
 <body>
@@ -744,6 +773,7 @@ tbody tr:hover td { background: #22263a; }
           <option value="pn">PN</option>
         </select>
         <select id="mmMes" onchange="renderMesMes()"></select>
+        <button type="button" class="btn-pdf" onclick="gerarApuradoPDF()">📄 Gerar PDF</button>
       </div>
 
       <!-- Tabela de lançamentos -->
@@ -821,6 +851,9 @@ tbody tr:hover td { background: #22263a; }
     </div>
   </div>
 </div>
+
+<!-- Relatório de impressão (apurado mensal em PDF) -->
+<div id="printReport"></div>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -1533,6 +1566,53 @@ function renderMesMes() {
     </tr>` : '';
 
   document.getElementById('bodyMesMes').innerHTML = rowsHtml + totalHtml;
+}
+
+// ── Apurado mensal em PDF (imprimir/salvar) ──────────────
+const MES_NOME_COMPLETO = {
+  jan:'Janeiro', fev:'Fevereiro', mar:'Março', abr:'Abril', mai:'Maio', jun:'Junho',
+  jul:'Julho', ago:'Agosto', set:'Setembro', out:'Outubro', nov:'Novembro', dez:'Dezembro'
+};
+
+function gerarApuradoPDF() {
+  if (!_dashData) { toast('Aguarde os dados carregarem', 'error'); return; }
+
+  const imovel = document.getElementById('mmImovel').value;
+  const mes    = document.getElementById('mmMes').value;
+
+  const merged = mergeLancamentos(_dashData);
+  const arr    = imovel === 'smg' ? merged.smg : merged.pn;
+  const row    = (arr || []).find(r => mesMatch(r.mes, mes)) || {
+    entradas: 0, receita: 0, comissao: 0, limpeza: 0, lavanderia: 0, outros: 0, desp_fixas: 0, liquido: 0
+  };
+
+  const [mAbrev, anoAbrev] = (normalizeMes(mes) || '').split('/');
+  const mesExtenso = `${MES_NOME_COMPLETO[mAbrev] || mes} de 20${anoAbrev || ''}`;
+
+  const linhas = [
+    ['Receita', R$(row.receita)],
+    ['Número de Entradas', row.entradas || '—'],
+    ['Comissão', R$(row.comissao)],
+    ['Limpeza', R$(row.limpeza)],
+    ['Lavanderia', R$(row.lavanderia)],
+    ['Outros', R$(row.outros)],
+  ];
+  if (imovel === 'smg' && row.desp_fixas) linhas.push(['Despesas Fixas', R$(row.desp_fixas)]);
+
+  document.getElementById('printReport').innerHTML = `
+    <div class="pr-header">
+      <h1>Apurado Mensal — ${imovel.toUpperCase()}</h1>
+      <p>${mesExtenso}</p>
+    </div>
+    <table class="pr-table">
+      ${linhas.map(([label, valor]) => `<tr><td>${label}</td><td>${valor}</td></tr>`).join('')}
+      <tr class="pr-total"><td>Lucro Líquido</td><td>${R$(row.liquido)}</td></tr>
+    </table>
+    <p class="pr-footer">Gerado em ${new Date().toLocaleString('pt-BR')} — Dashboard Locações</p>
+  `;
+
+  haptic(10);
+  window.print();
 }
 
 async function addLancamento(e) {
