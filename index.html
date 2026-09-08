@@ -606,6 +606,45 @@ tbody tr:hover td { background: var(--surface-2); }
 .empty-workspace h2 { font-size: 17px; font-weight: 700; color: var(--text); }
 .empty-workspace p { font-size: 13px; max-width: 320px; line-height: 1.5; }
 
+/* ── Gestão › Calendário ── */
+.cal-card { padding: 16px 14px; margin-bottom: 14px; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-header h3 { font-size: 15px; font-weight: 700; text-transform: capitalize; }
+.cal-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  text-align: center; font-size: 10.5px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px;
+}
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-day {
+  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; background: var(--surface-2); border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--text); font-size: 12.5px; cursor: pointer; transition: all 0.15s; padding: 0;
+  font-family: inherit;
+}
+.cal-day.vazio { background: none; cursor: default; }
+.cal-day:not(.vazio):hover { border-color: var(--border-strong); }
+.cal-day.hoje { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+.cal-day.selected { background: var(--primary-soft); border-color: var(--primary); }
+.cal-dots { display: flex; gap: 2px; height: 5px; }
+.cal-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+.cal-dot.azul  { background: var(--primary); }
+.cal-dot.cinza { background: var(--muted); }
+.cal-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 11.5px; color: var(--muted); }
+.cal-legend span { display: flex; align-items: center; gap: 5px; }
+.cal-legend .cal-dot { width: 7px; height: 7px; }
+
+.cal-lista { display: flex; flex-direction: column; gap: 2px; }
+.cal-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.cal-item:last-child { border-bottom: none; }
+.cal-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.cal-item-dot.azul  { background: var(--primary); }
+.cal-item-dot.cinza { background: var(--muted); }
+.cal-item-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cal-item-info strong { font-size: 13px; }
+.cal-item-info span { font-size: 12px; color: var(--muted); }
+.cal-form-bloqueio { margin-top: 14px; }
+
 .form-highlight { animation: formGlow 1.1s ease; }
 @keyframes formGlow {
   0%   { box-shadow: 0 0 0 3px rgba(61,126,255,0); }
@@ -1015,6 +1054,10 @@ tbody tr:hover td { background: var(--surface-2); }
               <label>Data</label>
               <input type="date" id="fData" required>
             </div>
+            <div class="form-group" id="grupoNoites">
+              <label>Noites <span class="opt">(opcional)</span></label>
+              <input type="number" id="fNoites" min="1" placeholder="1">
+            </div>
             <div class="form-group">
               <label>Valor</label>
               <input type="text" inputmode="decimal" id="fValor" class="valor-input" placeholder="R$ 0,00" oninput="formatarValorInput()" required>
@@ -1097,10 +1140,56 @@ tbody tr:hover td { background: var(--surface-2); }
       </nav>
 
       <div class="g-tab-pane active" id="gtab-calendario">
-        <div class="empty-workspace">
+        <div id="calAtivo">
+          <div class="table-card cal-card">
+            <div class="cal-header">
+              <button type="button" class="icon-btn" onclick="calMudarMes(-1)" title="Mês anterior">
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <h3 id="calMesLabel">—</h3>
+              <button type="button" class="icon-btn" onclick="calMudarMes(1)" title="Próximo mês">
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+            <div class="cal-weekdays">
+              <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+            <div class="cal-legend">
+              <span><i class="cal-dot azul"></i> Reserva</span>
+              <span><i class="cal-dot cinza"></i> Bloqueio</span>
+            </div>
+          </div>
+
+          <div class="table-card" id="calDiaSelecionado" hidden>
+            <h3 id="calDiaTitulo">Dia</h3>
+            <div id="calDiaLista" class="cal-lista"></div>
+          </div>
+
+          <div class="table-card">
+            <h3>Bloqueios manuais</h3>
+            <table>
+              <thead><tr><th>Início</th><th>Fim</th><th>Motivo</th><th></th></tr></thead>
+              <tbody id="bodyBloqueios"></tbody>
+            </table>
+            <form id="formBloqueio" onsubmit="addBloqueio(event)" class="cal-form-bloqueio">
+              <div class="form-grid">
+                <div class="form-group"><label>Início</label><input type="date" id="blqInicio" required></div>
+                <div class="form-group"><label>Fim</label><input type="date" id="blqFim" required></div>
+                <div class="form-group lanc-desc"><label>Motivo <span class="opt">(opcional)</span></label><input type="text" id="blqMotivo" placeholder="Ex.: Manutenção"></div>
+              </div>
+              <button type="submit" class="btn-primary btn-add-lancamento">
+                <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Bloquear período
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="empty-workspace" id="calIndisponivel" hidden>
           <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
           <h2>Calendário</h2>
-          <p>Em construção — vamos montar essa aba juntos, aos poucos.</p>
+          <p>A Pipa não tem integração com o Airbnb, então por enquanto o calendário fica disponível só pra SMG e PN.</p>
         </div>
       </div>
       <div class="g-tab-pane" id="gtab-analise">
@@ -1249,6 +1338,8 @@ function selecionarImovelGestao(imovel) {
   document.getElementById('gestaoImovelTabs').hidden = false;
   document.getElementById('gestaoImovelContent').hidden = false;
   document.querySelectorAll('.gi-tab').forEach(t => t.classList.toggle('active', t.dataset.imovel === imovel));
+  _calDiaSelecionado = null;
+  try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); }
   haptic(8);
 }
 
@@ -1257,6 +1348,7 @@ function switchGestaoTab(name) {
   document.querySelectorAll('.g-tab').forEach(t => t.classList.toggle('active', t.dataset.gtab === name));
   document.querySelectorAll('.g-tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('gtab-' + name).classList.add('active');
+  if (name === 'calendario') { try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); } }
   haptic(6);
 }
 document.querySelectorAll('.g-tab').forEach(btn => {
@@ -2007,6 +2099,7 @@ function setTipoLancamento(tipo) {
   document.getElementById('tipoReceita').classList.toggle('active', tipo === 'receita');
   document.getElementById('tipoDespesa').classList.toggle('active', tipo === 'despesa');
   document.getElementById('grupoCategoria').style.display = tipo === 'despesa' ? 'flex' : 'none';
+  document.getElementById('grupoNoites').style.display    = tipo === 'receita' ? 'flex' : 'none';
   haptic(8);
 }
 
@@ -2059,6 +2152,13 @@ async function addLancamento(e) {
     criado_em: new Date().toISOString(),
   };
 
+  // Noites da estadia — só faz sentido pra receita (usado no calendário
+  // de Gestão pra pintar o período todo ocupado, não só o check-in)
+  if (categoria === 'receita') {
+    const noitesInput = parseInt(document.getElementById('fNoites').value, 10);
+    lancamento.noites = noitesInput > 0 ? noitesInput : 1;
+  }
+
   await db.ref('/lancamentos').push(lancamento);
 
   // Se for receita, lança automaticamente 17,5% como comissão (saída)
@@ -2078,6 +2178,7 @@ async function addLancamento(e) {
 
   document.getElementById('fMotivo').value = '';
   document.getElementById('fValor').value  = '';
+  document.getElementById('fNoites').value = '';
   document.getElementById('fData').value   = new Date().toISOString().split('T')[0];
   document.getElementById('mmImovel').value = lancamento.imovel;
   document.getElementById('mmMes').value    = mes;
@@ -2096,6 +2197,181 @@ async function deleteExcelEntry(idx) {
   if (!(await confirmDialog('Excluir este dado do Excel?'))) return;
   await db.ref('/dashboard/mesames/' + idx).remove();
   toast('Dado excluído');
+}
+
+// ── Gestão › Calendário (SMG / PN) ────────────────────────
+let _bloqueios        = {};
+let _calData           = (() => { const d = new Date(); d.setDate(1); return d; })(); // dia 1 do mês exibido
+let _calDiasDoMes      = {};
+let _calDiaSelecionado = null;
+
+function parseDataLocal(str) {
+  // "YYYY-MM-DD" → Date local, sem o desvio de fuso de new Date(string)
+  const [a, m, d] = str.split('-').map(Number);
+  return new Date(a, m - 1, d);
+}
+
+function calMudarMes(delta) {
+  _calData.setMonth(_calData.getMonth() + delta);
+  _calDiaSelecionado = null;
+  renderCalendario();
+  haptic(6);
+}
+
+function renderCalendario() {
+  const painelAtivo = document.getElementById('calAtivo');
+  if (!painelAtivo || !_gestaoImovel) return;
+
+  const painelIndisponivel = document.getElementById('calIndisponivel');
+  if (_gestaoImovel === 'pipa') {
+    painelAtivo.hidden = true;
+    painelIndisponivel.hidden = false;
+    return;
+  }
+  painelAtivo.hidden = false;
+  painelIndisponivel.hidden = true;
+
+  const imovel = _gestaoImovel;
+  const ano = _calData.getFullYear(), mesIdx = _calData.getMonth();
+  document.getElementById('calMesLabel').textContent =
+    _calData.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  // Monta um mapa dia → { reservas:[], bloqueios:[] } pro mês exibido
+  const primeiroDia = new Date(ano, mesIdx, 1);
+  const ultimoDia    = new Date(ano, mesIdx + 1, 0);
+  const dias = {};
+  for (let d = 1; d <= ultimoDia.getDate(); d++) dias[d] = { reservas: [], bloqueios: [] };
+
+  Object.values(_lancamentos).forEach(l => {
+    if (l.categoria !== 'receita' || l.imovel !== imovel || !l.data) return;
+    const inicio = parseDataLocal(l.data);
+    const noites = parseInt(l.noites, 10) || 1;
+    for (let i = 0; i < noites; i++) {
+      const dia = new Date(inicio); dia.setDate(dia.getDate() + i);
+      if (dia.getFullYear() === ano && dia.getMonth() === mesIdx) {
+        dias[dia.getDate()].reservas.push(l);
+      }
+    }
+  });
+
+  Object.entries(_bloqueios).forEach(([id, b]) => {
+    if (b.imovel !== imovel || !b.inicio || !b.fim) return;
+    const fim = parseDataLocal(b.fim);
+    for (let dia = parseDataLocal(b.inicio); dia <= fim; dia.setDate(dia.getDate() + 1)) {
+      if (dia.getFullYear() === ano && dia.getMonth() === mesIdx) {
+        dias[dia.getDate()].bloqueios.push({ ...b, id });
+      }
+    }
+  });
+
+  const offset = primeiroDia.getDay();
+  const hoje = new Date();
+  const ehHoje = d => hoje.getFullYear() === ano && hoje.getMonth() === mesIdx && hoje.getDate() === d;
+
+  let html = '';
+  for (let i = 0; i < offset; i++) html += '<div class="cal-day vazio"></div>';
+  for (let d = 1; d <= ultimoDia.getDate(); d++) {
+    const info = dias[d];
+    const temReserva  = info.reservas.length  > 0;
+    const temBloqueio = info.bloqueios.length > 0;
+    html += `<button type="button" class="cal-day${ehHoje(d) ? ' hoje' : ''}${d === _calDiaSelecionado ? ' selected' : ''}" onclick="calSelecionarDia(${d})">
+      <span class="cal-day-num">${d}</span>
+      <span class="cal-dots">${temReserva ? '<i class="cal-dot azul"></i>' : ''}${temBloqueio ? '<i class="cal-dot cinza"></i>' : ''}</span>
+    </button>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+
+  _calDiasDoMes = dias;
+  renderBloqueiosLista(imovel);
+  if (_calDiaSelecionado) {
+    calSelecionarDia(_calDiaSelecionado);
+  } else {
+    document.getElementById('calDiaSelecionado').hidden = true;
+  }
+}
+
+function calSelecionarDia(dia) {
+  _calDiaSelecionado = dia;
+  document.querySelectorAll('#calGrid .cal-day').forEach(el => {
+    const num = el.querySelector('.cal-day-num');
+    el.classList.toggle('selected', !!num && parseInt(num.textContent, 10) === dia);
+  });
+
+  const info  = _calDiasDoMes[dia];
+  const painel = document.getElementById('calDiaSelecionado');
+  if (!info || (!info.reservas.length && !info.bloqueios.length)) {
+    painel.hidden = true;
+    return;
+  }
+  painel.hidden = false;
+  const dataLabel = new Date(_calData.getFullYear(), _calData.getMonth(), dia)
+    .toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+  document.getElementById('calDiaTitulo').textContent = dataLabel;
+
+  let html = '';
+  info.reservas.forEach(r => {
+    html += `<div class="cal-item">
+      <span class="cal-item-dot azul"></span>
+      <div class="cal-item-info">
+        <strong>${r.motivo || 'Reserva'}</strong>
+        <span>${R$(r.valor)} · check-in ${r.data.split('-').reverse().join('/')}${r.noites ? ' · ' + r.noites + (r.noites === 1 ? ' noite' : ' noites') : ''}</span>
+      </div>
+    </div>`;
+  });
+  info.bloqueios.forEach(b => {
+    html += `<div class="cal-item">
+      <span class="cal-item-dot cinza"></span>
+      <div class="cal-item-info">
+        <strong>${b.motivo || 'Bloqueio'}</strong>
+        <span>${b.inicio.split('-').reverse().join('/')} — ${b.fim.split('-').reverse().join('/')}</span>
+      </div>
+      <button class="btn-delete" onclick="deleteBloqueio('${b.id}')" title="Excluir">${ICON_TRASH}</button>
+    </div>`;
+  });
+  document.getElementById('calDiaLista').innerHTML = html;
+}
+
+function renderBloqueiosLista(imovel) {
+  const tbody = document.getElementById('bodyBloqueios');
+  const lista = Object.entries(_bloqueios)
+    .filter(([, b]) => b.imovel === imovel)
+    .sort((a, b) => a[1].inicio.localeCompare(b[1].inicio));
+  tbody.innerHTML = lista.length
+    ? lista.map(([id, b]) => `
+        <tr>
+          <td>${b.inicio.split('-').reverse().join('/')}</td>
+          <td>${b.fim.split('-').reverse().join('/')}</td>
+          <td>${b.motivo || '—'}</td>
+          <td><button class="btn-delete" onclick="deleteBloqueio('${id}')" title="Excluir">${ICON_TRASH}</button></td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="4" class="empty">Nenhum bloqueio cadastrado</td></tr>';
+}
+
+async function addBloqueio(e) {
+  e.preventDefault();
+  const inicio = document.getElementById('blqInicio').value;
+  const fim    = document.getElementById('blqFim').value;
+  const motivo = document.getElementById('blqMotivo').value.trim();
+  if (!inicio || !fim) { toast('Informe início e fim', 'error'); return; }
+  if (fim < inicio) { toast('A data final não pode ser antes do início', 'error'); return; }
+
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  await db.ref('/bloqueios').push({
+    imovel: _gestaoImovel, inicio, fim, motivo, criado_em: new Date().toISOString(),
+  });
+  document.getElementById('blqInicio').value = '';
+  document.getElementById('blqFim').value    = '';
+  document.getElementById('blqMotivo').value = '';
+  btn.disabled = false;
+  toast('Bloqueio adicionado');
+}
+
+async function deleteBloqueio(id) {
+  if (!(await confirmDialog('Excluir este bloqueio?'))) return;
+  await db.ref('/bloqueios/' + id).remove();
+  toast('Bloqueio excluído');
 }
 
 // ── Master update ─────────────────────────────────────────
@@ -2131,11 +2407,17 @@ try { populateMesSelects(); } catch(e) { console.warn('populateMesSelects error:
 db.ref('/lancamentos').on('value', snap => {
   _lancamentos = snap.val() || {};
   if (_dashData) { update(_dashData); renderMesMes(); }
+  try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); }
 });
 
 db.ref('/comissoes_manual').on('value', snap => {
   _comissoesManual = snap.val() || {};
   if (_dashData) renderTableComissoes(mergeLancamentos(_dashData));
+});
+
+db.ref('/bloqueios').on('value', snap => {
+  _bloqueios = snap.val() || {};
+  try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); }
 });
 
 db.ref('/dashboard').on('value', snap => {

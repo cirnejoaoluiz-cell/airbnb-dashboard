@@ -9,7 +9,10 @@ Google Apps Script que lê os e-mails de **"Reserva confirmada"** do
 Airbnb no Gmail (`cirnejoaoluiz@gmail.com`) e lança automaticamente:
 
 - Uma receita (`categoria: "receita"`) com o valor de **"Você recebe"**
-  (já líquido da taxa do Airbnb), na data de check-in
+  (já líquido da taxa do Airbnb), na data de check-in, com o número de
+  **noites** da estadia (calculado a partir do check-in/checkout do
+  e-mail) — usado pelo calendário da aba Gestão pra pintar o período
+  todo ocupado, não só o dia de chegada
 - A comissão de 17,5% correspondente (mesma regra que o app já aplica
   quando você lança uma receita manualmente)
 
