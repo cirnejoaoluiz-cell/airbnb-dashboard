@@ -134,7 +134,7 @@ body {
 .main { padding: 24px 28px; max-width: 1380px; margin: 0 auto; }
 
 /* ── Tabs (navegação estilo SaaS) ── */
-.tabs {
+.tabs, .gi-tabs, .g-tabs {
   display: flex;
   gap: 2px;
   margin-bottom: 22px;
@@ -145,7 +145,7 @@ body {
   width: fit-content;
 }
 
-.tab {
+.tab, .gi-tab, .g-tab {
   display: flex; align-items: center; gap: 7px;
   padding: 8px 16px;
   font-family: var(--font);
@@ -155,10 +155,11 @@ body {
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
-.tab .icon { width: 15px; height: 15px; opacity: 0.85; }
-.tab:hover { color: var(--text); }
-.tab.active { color: var(--text); background: var(--surface-2); }
-.tab.active .icon { color: var(--primary); opacity: 1; }
+.tab .icon, .gi-tab .icon, .g-tab .icon { width: 15px; height: 15px; opacity: 0.85; }
+.tab:hover, .gi-tab:hover, .g-tab:hover { color: var(--text); }
+.tab.active, .gi-tab.active, .g-tab.active { color: var(--text); background: var(--surface-2); }
+.tab.active .icon, .gi-tab.active .icon, .g-tab.active .icon { color: var(--primary); opacity: 1; }
+.gi-tabs[hidden] { display: none; }
 
 /* ── KPI Grid ── */
 .kpi-grid {
@@ -334,8 +335,8 @@ tbody tr:hover td { background: var(--surface-2); }
 #dashboard { display: none; }
 
 /* ── Tab panes ── */
-.tab-pane { display: none; }
-.tab-pane.active { display: block; }
+.tab-pane, .g-tab-pane { display: none; }
+.tab-pane.active, .g-tab-pane.active { display: block; }
 
 /* ── No-data state ── */
 .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
@@ -450,8 +451,8 @@ tbody tr:hover td { background: var(--surface-2); }
 @keyframes ripple-anim { to { transform: scale(2.6); opacity: 0; } }
 
 /* ── Tab pane transition ── */
-.tab-pane { animation: none; }
-.tab-pane.active { animation: fadeSlideIn 0.22s ease; }
+.tab-pane, .g-tab-pane { animation: none; }
+.tab-pane.active, .g-tab-pane.active { animation: fadeSlideIn 0.22s ease; }
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -667,7 +668,7 @@ tbody tr:hover td { background: var(--surface-2); }
   .main { padding: 12px; }
 
   /* Tabs — rola horizontalmente, sem quebra */
-  .tabs {
+  .tabs, .gi-tabs, .g-tabs {
     overflow-x: auto;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
@@ -675,8 +676,8 @@ tbody tr:hover td { background: var(--surface-2); }
     width: auto;
     max-width: 100%;
   }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tab { white-space: nowrap; padding: 8px 13px; font-size: 12.5px; flex-shrink: 0; }
+  .tabs::-webkit-scrollbar, .gi-tabs::-webkit-scrollbar, .g-tabs::-webkit-scrollbar { display: none; }
+  .tab, .gi-tab, .g-tab { white-space: nowrap; padding: 8px 13px; font-size: 12.5px; flex-shrink: 0; }
 
   /* KPI cards — 2 por linha */
   .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1034,11 +1035,97 @@ tbody tr:hover td { background: var(--surface-2); }
 
   <!-- ═══════════ ÁREA GESTÃO (nova, em construção) ═══════════ -->
   <div id="gestaoContent" hidden>
-    <div class="empty-workspace">
-      <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 2h6v3H9z"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
-      <h2>Área de Gestão</h2>
-      <p>Em construção — vamos montar essa área juntos, aos poucos.</p>
+
+    <!-- Seletor de imóvel dentro da Gestão -->
+    <div id="gestaoPicker" class="workspace-picker">
+      <p class="wp-eyebrow">Gestão</p>
+      <h2 class="wp-title">Qual imóvel você quer gerenciar?</h2>
+      <div class="wp-cards">
+        <button class="wp-card" onclick="selecionarImovelGestao('smg')">
+          <div class="wp-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10h14V10"/></svg></div>
+          <h3>SMG</h3>
+          <p>Calendário, análise, mensagens e afazeres</p>
+        </button>
+        <button class="wp-card" onclick="selecionarImovelGestao('pn')">
+          <div class="wp-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
+          <h3>PN</h3>
+          <p>Calendário, análise, mensagens e afazeres</p>
+        </button>
+        <button class="wp-card" onclick="selecionarImovelGestao('pipa')">
+          <div class="wp-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="7" cy="14" r="4"/><path d="M10.5 10.5L20 1"/><path d="M17 4l3 3"/><path d="M14 7l2 2"/></svg></div>
+          <h3>Pipa</h3>
+          <p>Calendário, análise, mensagens e afazeres</p>
+        </button>
+      </div>
     </div>
+
+    <!-- Alternador de imóvel (aparece após escolher um) -->
+    <nav class="gi-tabs" id="gestaoImovelTabs" hidden>
+      <button class="gi-tab" data-imovel="smg" onclick="selecionarImovelGestao('smg')">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10h14V10"/></svg>
+        SMG
+      </button>
+      <button class="gi-tab" data-imovel="pn" onclick="selecionarImovelGestao('pn')">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        PN
+      </button>
+      <button class="gi-tab" data-imovel="pipa" onclick="selecionarImovelGestao('pipa')">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="7" cy="14" r="4"/><path d="M10.5 10.5L20 1"/><path d="M17 4l3 3"/><path d="M14 7l2 2"/></svg>
+        Pipa
+      </button>
+    </nav>
+
+    <!-- Abas internas de cada imóvel: Calendário, Análise, Mensagens, Afazeres -->
+    <div id="gestaoImovelContent" hidden>
+      <nav class="g-tabs">
+        <button class="g-tab active" data-gtab="calendario">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Calendário
+        </button>
+        <button class="g-tab" data-gtab="analise">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Análise
+        </button>
+        <button class="g-tab" data-gtab="mensagens">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Mensagens
+        </button>
+        <button class="g-tab" data-gtab="afazeres">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="8 12 11 15 16 9"/></svg>
+          Afazeres
+        </button>
+      </nav>
+
+      <div class="g-tab-pane active" id="gtab-calendario">
+        <div class="empty-workspace">
+          <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          <h2>Calendário</h2>
+          <p>Em construção — vamos montar essa aba juntos, aos poucos.</p>
+        </div>
+      </div>
+      <div class="g-tab-pane" id="gtab-analise">
+        <div class="empty-workspace">
+          <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+          <h2>Análise</h2>
+          <p>Em construção — vamos montar essa aba juntos, aos poucos.</p>
+        </div>
+      </div>
+      <div class="g-tab-pane" id="gtab-mensagens">
+        <div class="empty-workspace">
+          <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <h2>Mensagens</h2>
+          <p>Em construção — vamos montar essa aba juntos, aos poucos.</p>
+        </div>
+      </div>
+      <div class="g-tab-pane" id="gtab-afazeres">
+        <div class="empty-workspace">
+          <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="8 12 11 15 16 9"/></svg></div>
+          <h2>Afazeres</h2>
+          <p>Em construção — vamos montar essa aba juntos, aos poucos.</p>
+        </div>
+      </div>
+    </div>
+
   </div>
 
 </main>
@@ -1142,8 +1229,39 @@ function selecionarWorkspace(ws) {
   const tabAtiva = document.querySelector('.tab.active');
   document.getElementById('fabAdd').hidden = !isFinanceiro || (tabAtiva && tabAtiva.dataset.tab === 'mesames');
 
+  // Ao entrar na Gestão, se um imóvel já foi escolhido nesta sessão, pula
+  // direto pra ele em vez de mostrar o seletor de novo.
+  if (ws === 'gestao') {
+    const jaEscolheu = !!_gestaoImovel;
+    document.getElementById('gestaoPicker').hidden        = jaEscolheu;
+    document.getElementById('gestaoImovelTabs').hidden     = !jaEscolheu;
+    document.getElementById('gestaoImovelContent').hidden  = !jaEscolheu;
+  }
+
   haptic(8);
 }
+
+// ── Gestão: seleção de imóvel (SMG / PN / Pipa) ──────────
+let _gestaoImovel = null;
+function selecionarImovelGestao(imovel) {
+  _gestaoImovel = imovel;
+  document.getElementById('gestaoPicker').hidden = true;
+  document.getElementById('gestaoImovelTabs').hidden = false;
+  document.getElementById('gestaoImovelContent').hidden = false;
+  document.querySelectorAll('.gi-tab').forEach(t => t.classList.toggle('active', t.dataset.imovel === imovel));
+  haptic(8);
+}
+
+// ── Gestão: abas internas de cada imóvel ─────────────────
+function switchGestaoTab(name) {
+  document.querySelectorAll('.g-tab').forEach(t => t.classList.toggle('active', t.dataset.gtab === name));
+  document.querySelectorAll('.g-tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('gtab-' + name).classList.add('active');
+  haptic(6);
+}
+document.querySelectorAll('.g-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchGestaoTab(btn.dataset.gtab));
+});
 
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
