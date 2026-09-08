@@ -134,6 +134,28 @@ function parseEmailAirbnb_(msg) {
   const dataFmt = ano + '-' + pad2_(mesIdx + 1) + '-' + pad2_(dia);
   const mes = mesAbrev + '/' + String(ano).slice(-2);
 
+  // Noites da estadia — pega a segunda data do bloco (checkout) e calcula
+  // a diferença de dias. Usado no calendário de Gestão pra pintar o
+  // período todo ocupado, não só o dia de chegada.
+  let noites = 1;
+  const checkout = datasEncontradas[1];
+  if (checkout) {
+    const mCheckout = checkout.match(/(\d{1,2})\s+de\s+([a-zçãéêô]{3})/i);
+    if (mCheckout) {
+      const diaOut = parseInt(mCheckout[1], 10);
+      const mesOutAbrev = normalizarMesAbrev_(mCheckout[2]);
+      const mesOutIdx = MES_ABREV_PARA_IDX[mesOutAbrev];
+      if (mesOutIdx !== undefined) {
+        let anoOut = ano;
+        if (mesOutIdx < mesIdx) anoOut += 1; // checkout cai no ano seguinte (virada de dez/jan)
+        const dataCheckin  = new Date(ano, mesIdx, dia);
+        const dataCheckout = new Date(anoOut, mesOutIdx, diaOut);
+        const diff = Math.round((dataCheckout - dataCheckin) / 86400000);
+        if (diff > 0) noites = diff;
+      }
+    }
+  }
+
   // Valor que você recebe (já líquido da taxa do Airbnb)
   const matchValor = corpo.match(/VOC[ÊE]\s+RECEBE[\s\S]{0,12}?R\$\s*([\d.,]+)/i);
   if (!matchValor) throw new Error('Não encontrei "Você recebe" no e-mail.');
@@ -144,7 +166,7 @@ function parseEmailAirbnb_(msg) {
   const matchCodigo = corpo.match(/\/reservations\/details\/([A-Z0-9]+)/i);
   const codigo = matchCodigo ? matchCodigo[1] : '';
 
-  return { imovel, hospede, dataFmt, mes, valor, codigo, threadId: msg.getThread().getId() };
+  return { imovel, hospede, dataFmt, mes, valor, noites, codigo, threadId: msg.getThread().getId() };
 }
 
 // ── Lança a receita + comissão automática de 17,5% ───────
@@ -159,6 +181,7 @@ function lancarReservaNoFirebase_(reserva) {
     categoria: 'receita',
     tipo:      'entrada',
     valor:     reserva.valor,
+    noites:    reserva.noites,
     criado_em: agora,
   };
   pushFirebase_('/lancamentos', lancamento);
@@ -210,7 +233,7 @@ function enviarResumo_(importados, comErro) {
   if (importados.length) {
     corpo += 'Reservas importadas automaticamente:\n\n';
     importados.forEach(r => {
-      corpo += '• ' + r.imovel.toUpperCase() + ' — ' + r.hospede + ' — ' + r.dataFmt + ' — R$ ' + r.valor.toFixed(2).replace('.', ',') + '\n';
+      corpo += '• ' + r.imovel.toUpperCase() + ' — ' + r.hospede + ' — ' + r.dataFmt + ' (' + r.noites + (r.noites === 1 ? ' noite' : ' noites') + ') — R$ ' + r.valor.toFixed(2).replace('.', ',') + '\n';
     });
   }
   if (comErro.length) {
