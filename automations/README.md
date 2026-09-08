@@ -1,0 +1,43 @@
+# Automações
+
+Scripts que rodam fora do site (não fazem parte do que é publicado no
+GitHub Pages), usados para alimentar o Firebase automaticamente.
+
+## AirbnbParaFirebase.gs
+
+Google Apps Script que lê os e-mails de **"Reserva confirmada"** do
+Airbnb no Gmail (`cirnejoaoluiz@gmail.com`) e lança automaticamente:
+
+- Uma receita (`categoria: "receita"`) com o valor de **"Você recebe"**
+  (já líquido da taxa do Airbnb), na data de check-in
+- A comissão de 17,5% correspondente (mesma regra que o app já aplica
+  quando você lança uma receita manualmente)
+
+O imóvel (SMG ou PN) é identificado pelo **ID do anúncio do Airbnb**
+(fixo na URL, não muda se o título do anúncio for editado):
+
+| Imóvel | Anúncio | ID |
+|---|---|---|
+| SMG | TÉRREO PÉ NA AREIA COM 3 SUÍTES | `1365160889800213675` |
+| PN | ILUSION \| Refúgio no Coração de Ponta Negra | `1628330458348439056` |
+
+Pipa não tem anúncio no Airbnb — continua sendo lançada manualmente
+na aba Comissões, como já é hoje.
+
+### Instalação
+
+Veja o cabeçalho do próprio arquivo `AirbnbParaFirebase.gs` — o
+passo a passo completo está comentado lá (colar em
+[script.google.com](https://script.google.com), autorizar o acesso
+ao Gmail, e rodar a função `configurarGatilho` uma vez).
+
+### Como funciona a prova de duplicidade
+
+Cada e-mail processado com sucesso recebe o rótulo do Gmail
+`Locacoes/Importado`, e a busca do script sempre ignora e-mails que já
+tenham esse rótulo — então rodar o script várias vezes não lança a
+mesma reserva duas vezes.
+
+Se algum e-mail não puder ser interpretado (formato mudou, anúncio
+novo não cadastrado, etc.), ele recebe o rótulo `Locacoes/Revisar` no
+Gmail, pra você lançar manualmente, e você recebe um e-mail avisando.
