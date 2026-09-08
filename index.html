@@ -643,6 +643,8 @@ tbody tr:hover td { background: var(--surface-2); }
 .cal-form-actions { display: flex; gap: 10px; align-items: center; }
 .cal-form-actions .btn-add-lancamento { width: auto; flex: 1; }
 
+.ana-nota { font-size: 12px; color: var(--muted-2); line-height: 1.5; padding: 0 2px; margin-top: 2px; }
+
 .form-highlight { animation: formGlow 1.1s ease; }
 @keyframes formGlow {
   0%   { box-shadow: 0 0 0 3px rgba(61,126,255,0); }
@@ -1187,10 +1189,80 @@ tbody tr:hover td { background: var(--surface-2); }
         </div>
       </div>
       <div class="g-tab-pane" id="gtab-analise">
-        <div class="empty-workspace">
+        <div id="anaAtivo">
+          <div class="table-card cal-card">
+            <div class="cal-header">
+              <button type="button" class="icon-btn" onclick="anaMudarMes(-1)" title="Mês anterior">
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <h3 id="anaMesLabel">—</h3>
+              <button type="button" class="icon-btn" onclick="anaMudarMes(1)" title="Próximo mês">
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="kpi-grid" id="anaKpiCards">
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <div class="kpi-label">Taxa de Ocupação</div>
+                <div class="kpi-icon"><svg class="icon" viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></div>
+              </div>
+              <div class="kpi-value" id="anaKpiOcupacao">—</div>
+              <div class="kpi-sub" id="anaSubOcupacao">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <div class="kpi-label">Valor Médio da Diária</div>
+                <div class="kpi-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg></div>
+              </div>
+              <div class="kpi-value money" id="anaKpiAdr">—</div>
+              <div class="kpi-sub" id="anaSubAdr">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <div class="kpi-label">Duração Média da Estadia</div>
+                <div class="kpi-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>
+              </div>
+              <div class="kpi-value" id="anaKpiDuracao">—</div>
+              <div class="kpi-sub" id="anaSubDuracao">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-top">
+                <div class="kpi-label">Fins de Semana Vazios</div>
+                <div class="kpi-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="20"/><line x1="15" y1="14" x2="9" y2="20"/></svg></div>
+              </div>
+              <div class="kpi-value" id="anaKpiFds">—</div>
+              <div class="kpi-sub" id="anaSubFds">—</div>
+            </div>
+            <div class="kpi-card primary">
+              <div class="kpi-top">
+                <div class="kpi-label">RevPAR</div>
+                <div class="kpi-icon"><svg class="icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+              </div>
+              <div class="kpi-value money" id="anaKpiRevpar">—</div>
+              <div class="kpi-sub" id="anaSubRevpar">—</div>
+            </div>
+          </div>
+
+          <div class="charts-row">
+            <div class="chart-card">
+              <h3>Ocupação — últimos 6 meses</h3>
+              <div class="chart-container short"><canvas id="chartAnaOcupacao"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h3>RevPAR — últimos 6 meses</h3>
+              <div class="chart-container short money-chart"><canvas id="chartAnaRevpar"></canvas></div>
+            </div>
+          </div>
+
+          <p class="ana-nota">Calculado a partir dos lançamentos de receita com check-in e noites cadastrados (Mês a Mês ou Calendário). Meses cujo histórico veio só da planilha antiga, sem nenhum lançamento manual, não entram nessa análise.</p>
+        </div>
+
+        <div class="empty-workspace" id="anaIndisponivel" hidden>
           <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
           <h2>Análise</h2>
-          <p>Em construção — vamos montar essa aba juntos, aos poucos.</p>
+          <p>A Pipa não tem integração com o Airbnb, então por enquanto a análise de ocupação fica disponível só pra SMG e PN.</p>
         </div>
       </div>
       <div class="g-tab-pane" id="gtab-mensagens">
@@ -1336,6 +1408,7 @@ function selecionarImovelGestao(imovel) {
   _calDiaSelecionado = null;
   try { cancelarEdicaoReserva(); } catch (e) { console.error('cancelarEdicaoReserva', e); }
   try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); }
+  try { renderAnalise(); } catch (e) { console.error('renderAnalise', e); }
   haptic(8);
 }
 
@@ -1345,6 +1418,7 @@ function switchGestaoTab(name) {
   document.querySelectorAll('.g-tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('gtab-' + name).classList.add('active');
   if (name === 'calendario') { try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); } }
+  if (name === 'analise')    { try { renderAnalise(); } catch (e) { console.error('renderAnalise', e); } }
   haptic(6);
 }
 document.querySelectorAll('.g-tab').forEach(btn => {
@@ -2407,6 +2481,185 @@ async function excluirReservaCalendario(id) {
   if (excluiu && _calEditandoId === id) cancelarEdicaoReserva();
 }
 
+// ── Gestão › Análise (SMG / PN) ────────────────────────────
+// Taxa de ocupação, diária média (ADR), duração média da estadia,
+// % de finais de semana vazios e RevPAR — calculados a partir dos
+// mesmos lançamentos de receita (check-in + noites) usados no
+// calendário. Reservas sem noites cadastradas contam como 1 noite.
+let _anaData = (() => { const d = new Date(); d.setDate(1); return d; })();
+
+function anaMudarMes(delta) {
+  _anaData.setMonth(_anaData.getMonth() + delta);
+  renderAnalise();
+  haptic(6);
+}
+
+// Mapa dia → noites ocupadas + receita alocada por noite (valor da
+// reserva dividido igualmente entre as noites da estadia), pro imóvel
+// inteiro, sem recorte de mês — assim uma estadia que atravessa a
+// virada do mês é contabilizada corretamente nos dois meses.
+function construirDadosOcupacao(imovel) {
+  const ocupados = new Set();
+  const receitaPorDia = {};
+  Object.values(_lancamentos).forEach(l => {
+    if (l.categoria !== 'receita' || l.imovel !== imovel || !l.data) return;
+    const noites = parseInt(l.noites, 10) || 1;
+    const valorPorNoite = (Number(l.valor) || 0) / noites;
+    const inicio = parseDataLocal(l.data);
+    for (let i = 0; i < noites; i++) {
+      const dia = new Date(inicio); dia.setDate(dia.getDate() + i);
+      const key = fmtDataLocal(dia);
+      ocupados.add(key);
+      receitaPorDia[key] = (receitaPorDia[key] || 0) + valorPorNoite;
+    }
+  });
+  return { ocupados, receitaPorDia };
+}
+
+function metricasAnaliseDoMes(imovel, ano, mesIdx, ocupacaoData) {
+  const { ocupados, receitaPorDia } = ocupacaoData;
+  const diasNoMes = new Date(ano, mesIdx + 1, 0).getDate();
+
+  let noitesOcupadas = 0, receita = 0;
+  for (let d = 1; d <= diasNoMes; d++) {
+    const key = fmtDataLocal(new Date(ano, mesIdx, d));
+    if (ocupados.has(key)) { noitesOcupadas++; receita += receitaPorDia[key] || 0; }
+  }
+
+  // Duração média — reservas cujo check-in caiu neste mês
+  const reservasDoMes = Object.values(_lancamentos).filter(l => {
+    if (l.categoria !== 'receita' || l.imovel !== imovel || !l.data) return false;
+    const dt = parseDataLocal(l.data);
+    return dt.getFullYear() === ano && dt.getMonth() === mesIdx;
+  });
+
+  // Finais de semana vazios — cada sábado do mês, pareado com a sexta
+  // anterior (que pode cair no mês passado); "vazio" só se as DUAS
+  // noites estiverem livres
+  let totalFDS = 0, fdsVazios = 0;
+  for (let d = 1; d <= diasNoMes; d++) {
+    const data = new Date(ano, mesIdx, d);
+    if (data.getDay() !== 6) continue; // só sábados
+    totalFDS++;
+    const sexta = new Date(data); sexta.setDate(sexta.getDate() - 1);
+    if (!ocupados.has(fmtDataLocal(data)) && !ocupados.has(fmtDataLocal(sexta))) fdsVazios++;
+  }
+
+  return {
+    diasNoMes, noitesOcupadas, receita, reservasDoMes, totalFDS, fdsVazios,
+    semDados: noitesOcupadas === 0 && reservasDoMes.length === 0,
+    taxaOcupacao: diasNoMes ? (noitesOcupadas / diasNoMes) * 100 : 0,
+    adr: noitesOcupadas ? receita / noitesOcupadas : 0,
+    revpar: diasNoMes ? receita / diasNoMes : 0,
+    duracaoMedia: reservasDoMes.length
+      ? reservasDoMes.reduce((s, l) => s + (parseInt(l.noites, 10) || 1), 0) / reservasDoMes.length
+      : 0,
+    pctFdsVazios: totalFDS ? (fdsVazios / totalFDS) * 100 : 0,
+  };
+}
+
+function renderAnalise() {
+  const painelAtivo = document.getElementById('anaAtivo');
+  if (!painelAtivo || !_gestaoImovel) return;
+
+  const painelIndisponivel = document.getElementById('anaIndisponivel');
+  if (_gestaoImovel === 'pipa') {
+    painelAtivo.hidden = true;
+    painelIndisponivel.hidden = false;
+    return;
+  }
+  painelAtivo.hidden = false;
+  painelIndisponivel.hidden = true;
+
+  const imovel = _gestaoImovel;
+  const ano = _anaData.getFullYear(), mesIdx = _anaData.getMonth();
+  document.getElementById('anaMesLabel').textContent =
+    _anaData.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  const ocupacaoData = construirDadosOcupacao(imovel);
+  const m = metricasAnaliseDoMes(imovel, ano, mesIdx, ocupacaoData);
+
+  const setTexto = (id, texto) => { const el = document.getElementById(id); if (el) el.textContent = texto; };
+
+  setTexto('anaKpiOcupacao', m.semDados ? '—' : Math.round(m.taxaOcupacao) + '%');
+  setTexto('anaSubOcupacao', m.semDados ? 'Sem lançamentos neste mês' : `${m.noitesOcupadas} de ${m.diasNoMes} noites`);
+
+  setTexto('anaKpiAdr', m.noitesOcupadas ? R$(m.adr) : '—');
+  setTexto('anaSubAdr', m.noitesOcupadas ? `Com base em ${m.noitesOcupadas} ${m.noitesOcupadas === 1 ? 'noite vendida' : 'noites vendidas'}` : 'Sem noites vendidas');
+
+  setTexto('anaKpiDuracao', m.reservasDoMes.length ? m.duracaoMedia.toFixed(1).replace('.', ',') + (m.duracaoMedia.toFixed(1) === '1.0' ? ' noite' : ' noites') : '—');
+  setTexto('anaSubDuracao', m.reservasDoMes.length ? `Em ${m.reservasDoMes.length} ${m.reservasDoMes.length === 1 ? 'reserva' : 'reservas'} no mês` : 'Nenhum check-in neste mês');
+
+  setTexto('anaKpiFds', m.totalFDS ? Math.round(m.pctFdsVazios) + '%' : '—');
+  setTexto('anaSubFds', m.totalFDS ? `${m.fdsVazios} de ${m.totalFDS} finais de semana` : 'Sem finais de semana no mês');
+
+  setTexto('anaKpiRevpar', m.semDados ? '—' : R$(m.revpar));
+  setTexto('anaSubRevpar', m.semDados ? 'Sem lançamentos neste mês' : 'Receita ÷ dias do mês');
+
+  renderTendenciaAnalise(imovel, ocupacaoData);
+}
+
+function renderTendenciaAnalise(imovel, ocupacaoData) {
+  const base = new Date(_anaData.getFullYear(), _anaData.getMonth(), 1);
+  const meses = [];
+  for (let i = 5; i >= 0; i--) meses.push(new Date(base.getFullYear(), base.getMonth() - i, 1));
+
+  const pontosOcupacao = [], pontosRevpar = [];
+  meses.forEach(d => {
+    const mm = metricasAnaliseDoMes(imovel, d.getFullYear(), d.getMonth(), ocupacaoData);
+    pontosOcupacao.push(mm.semDados ? null : Math.round(mm.taxaOcupacao));
+    pontosRevpar.push(mm.semDados ? null : Math.round(mm.revpar));
+  });
+  const labels = meses.map(d => {
+    const nome = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    return nome.charAt(0).toUpperCase() + nome.slice(1);
+  });
+
+  const tickStyle = { color: '#93939c', font: { family: "'Inter', sans-serif" } };
+
+  destroyChart('anaOcupacao');
+  charts.anaOcupacao = new Chart(document.getElementById('chartAnaOcupacao'), {
+    type: 'line',
+    data: { labels, datasets: [{
+      data: pontosOcupacao, borderColor: '#3d7eff', backgroundColor: 'rgba(61,126,255,0.08)',
+      fill: true, tension: 0.35, pointRadius: 4, pointBackgroundColor: '#3d7eff',
+      pointBorderColor: '#1a1b1e', pointBorderWidth: 2, spanGaps: false,
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: tickStyle },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false }, min: 0, max: 100,
+          ticks: { ...tickStyle, maxTicksLimit: 5, callback: v => v + '%' },
+        }
+      }
+    }
+  });
+
+  destroyChart('anaRevpar');
+  charts.anaRevpar = new Chart(document.getElementById('chartAnaRevpar'), {
+    type: 'line',
+    data: { labels, datasets: [{
+      data: pontosRevpar, borderColor: '#2fbf71', backgroundColor: 'rgba(47,191,113,0.08)',
+      fill: true, tension: 0.35, pointRadius: 4, pointBackgroundColor: '#2fbf71',
+      pointBorderColor: '#1a1b1e', pointBorderWidth: 2, spanGaps: false,
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: tickStyle },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false },
+          ticks: { ...tickStyle, maxTicksLimit: 5, callback: v => 'R$' + v },
+        }
+      }
+    }
+  });
+}
+
 // ── Master update ─────────────────────────────────────────
 function update(data) {
   if (!data) return;
@@ -2441,6 +2694,7 @@ db.ref('/lancamentos').on('value', snap => {
   _lancamentos = snap.val() || {};
   if (_dashData) { update(_dashData); renderMesMes(); }
   try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); }
+  try { renderAnalise(); } catch (e) { console.error('renderAnalise', e); }
 });
 
 db.ref('/comissoes_manual').on('value', snap => {
