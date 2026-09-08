@@ -640,11 +640,6 @@ tbody tr:hover td { background: var(--surface-2); }
 .cal-item-info strong { font-size: 13px; }
 .cal-item-info span { font-size: 12px; color: var(--muted); }
 
-.cal-form-heading {
-  font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase;
-  letter-spacing: 0.4px; margin-top: 18px; margin-bottom: 8px;
-}
-.cal-form-reserva { margin-top: 0; }
 .cal-form-actions { display: flex; gap: 10px; align-items: center; }
 .cal-form-actions .btn-add-lancamento { width: auto; flex: 1; }
 
@@ -1166,13 +1161,8 @@ tbody tr:hover td { background: var(--surface-2); }
           </div>
 
           <div class="table-card">
-            <h3>Reservas</h3>
-            <table>
-              <thead><tr><th>Check-in</th><th>Checkout</th><th>Valor</th><th>Motivo</th><th></th></tr></thead>
-              <tbody id="bodyReservasCal"></tbody>
-            </table>
-            <p class="cal-form-heading" id="calFormTitulo">Nova reserva</p>
-            <form id="formReserva" onsubmit="salvarReservaCalendario(event)" class="cal-form-reserva">
+            <h3 id="calFormTitulo">Nova reserva</h3>
+            <form id="formReserva" onsubmit="salvarReservaCalendario(event)">
               <div class="form-grid">
                 <div class="form-group"><label>Check-in</label><input type="date" id="resCheckin" required></div>
                 <div class="form-group"><label>Checkout</label><input type="date" id="resCheckout" required></div>
@@ -2291,7 +2281,6 @@ function renderCalendario() {
   document.getElementById('calGrid').innerHTML = html;
 
   _calDiasDoMes = dias;
-  renderReservasListaCalendario(imovel);
   if (_calDiaSelecionado) {
     calSelecionarDia(_calDiaSelecionado);
   } else {
@@ -2329,27 +2318,6 @@ function calSelecionarDia(dia) {
       <button class="btn-delete" onclick="excluirReservaCalendario('${r.id}')" title="Excluir">${ICON_TRASH}</button>
     </div>`;
   }).join('');
-}
-
-function renderReservasListaCalendario(imovel) {
-  const tbody = document.getElementById('bodyReservasCal');
-  const lista = Object.entries(_lancamentos)
-    .filter(([, l]) => l.categoria === 'receita' && l.imovel === imovel && l.data)
-    .sort((a, b) => b[1].data.localeCompare(a[1].data)); // mais recentes primeiro
-  tbody.innerHTML = lista.length
-    ? lista.map(([id, l]) => `
-        <tr>
-          <td>${fmtDataBR(l.data)}</td>
-          <td>${fmtDataBR(checkoutDeReserva(l))}</td>
-          <td>${R$(l.valor)}</td>
-          <td>${l.motivo || '—'}</td>
-          <td>
-            <button class="icon-btn" onclick="editarReservaCalendario('${id}')" title="Editar">${ICON_EDIT}</button>
-            <button class="btn-delete" onclick="excluirReservaCalendario('${id}')" title="Excluir">${ICON_TRASH}</button>
-          </td>
-        </tr>
-      `).join('')
-    : '<tr><td colspan="5" class="empty">Nenhuma reserva cadastrada</td></tr>';
 }
 
 // Converte um valor numérico (ex.: 1211.27) pra máscara "R$ 1.211,27",
