@@ -1585,7 +1585,7 @@ async function initNotificacoes() {
 }
 
 async function ativarNotificacoes() {
-  if (!(await notificacoesSuportadas())) { toast('Seu navegador não suporta notificações push', 'error'); return; }
+  if (!('Notification' in window)) { toast('Seu navegador não suporta notificações push', 'error'); return; }
   if (VAPID_PUBLIC_KEY.indexOf('COLE_AQUI') === 0) {
     toast('Falta configurar a chave VAPID no código', 'error');
     return;
@@ -1597,8 +1597,13 @@ async function ativarNotificacoes() {
 
   const btn = document.getElementById('notifyBtn');
   try {
+    // Tem que ser a primeira coisa assíncrona chamada aqui dentro, sem
+    // nenhum await antes — o Safari/iOS só mostra a caixa de permissão
+    // se a chamada ainda estiver "colada" no toque do usuário.
     const permissao = await Notification.requestPermission();
     if (permissao !== 'granted') { toast('Permissão de notificação não concedida', 'error'); return; }
+
+    if (!(await notificacoesSuportadas())) { toast('Seu navegador não suporta notificações push', 'error'); return; }
 
     const reg = await navigator.serviceWorker.ready;
     const messaging = firebase.messaging();
@@ -1617,7 +1622,7 @@ async function ativarNotificacoes() {
     haptic(10);
   } catch (e) {
     console.error('Erro ao ativar notificações:', e);
-    toast('Falha ao ativar notificações', 'error');
+    toast('Falha: ' + (e && e.message ? e.message : e), 'error');
   }
 }
 
