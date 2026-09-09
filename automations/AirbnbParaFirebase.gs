@@ -47,6 +47,30 @@ const MES_ABREV_PARA_IDX = {
 // (deixe false pra desligar)
 const ENVIAR_RESUMO_POR_EMAIL = true;
 
+// ── Avisos de limpeza (WhatsApp) ──────────────────────────
+// Número de WhatsApp de cada equipe (código do país + DDD + número,
+// só dígitos). Todo dia às 18h, se tiver check-in ou checkout no dia
+// seguinte, o app manda uma notificação push pro celular — ao tocar,
+// abre o WhatsApp já com a mensagem pronta pra essa equipe.
+const TELEFONE_LIMPEZA = {
+  smg:  '5584994546064', // Carol
+  pn:   '5584998440479', // Isis
+  pipa: '5584994212815', // Jucele
+};
+const NOME_IMOVEL = { smg: 'SMG', pn: 'PN', pipa: 'Pipa' };
+
+// Credenciais do Firebase Cloud Messaging (pra enviar a notificação
+// push). Gere as duas em console.firebase.google.com, projeto
+// "locacao-dashboard":
+// 1. Configurações do projeto → Contas de serviço → "Gerar nova
+//    chave privada" → baixa um .json → copie os campos "client_email"
+//    e "private_key" de dentro dele pras duas constantes abaixo
+//    (mantenha as quebras de linha \n do private_key exatamente como
+//    estão no arquivo)
+const FCM_PROJECT_ID              = 'locacao-dashboard';
+const SERVICE_ACCOUNT_EMAIL       = 'COLE_AQUI_O_CLIENT_EMAIL_DO_JSON';
+const SERVICE_ACCOUNT_PRIVATE_KEY = 'COLE_AQUI_O_PRIVATE_KEY_DO_JSON';
+
 // ── Ponto de entrada (roda no gatilho de tempo) ──────────
 function processarReservasAirbnb() {
   garantirLabels_();
@@ -156,6 +180,13 @@ function parseEmailAirbnb_(msg) {
     }
   }
 
+  // Horários de check-in/checkout — ficam na linha logo após as datas,
+  // no mesmo bloco ("14:00 11:00"). Usa os padrões do Airbnb (14h/11h)
+  // se não encontrar, já que quase toda reserva segue esse horário.
+  const matchHorarios = trechoDatas[1].match(/(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})/);
+  const horaCheckin  = matchHorarios ? matchHorarios[1] : '14:00';
+  const horaCheckout = matchHorarios ? matchHorarios[2] : '11:00';
+
   // Valor que você recebe (já líquido da taxa do Airbnb)
   const matchValor = corpo.match(/VOC[ÊE]\s+RECEBE[\s\S]{0,12}?R\$\s*([\d.,]+)/i);
   if (!matchValor) throw new Error('Não encontrei "Você recebe" no e-mail.');
@@ -166,7 +197,7 @@ function parseEmailAirbnb_(msg) {
   const matchCodigo = corpo.match(/\/reservations\/details\/([A-Z0-9]+)/i);
   const codigo = matchCodigo ? matchCodigo[1] : '';
 
-  return { imovel, hospede, dataFmt, mes, valor, noites, codigo, threadId: msg.getThread().getId() };
+  return { imovel, hospede, dataFmt, mes, valor, noites, horaCheckin, horaCheckout, codigo, threadId: msg.getThread().getId() };
 }
 
 // ── Lança a receita + comissão automática de 17,5% ───────
@@ -174,15 +205,18 @@ function lancarReservaNoFirebase_(reserva) {
   const agora = new Date().toISOString();
 
   const lancamento = {
-    imovel:    reserva.imovel,
-    mes:       reserva.mes,
-    data:      reserva.dataFmt,
-    motivo:    'Airbnb',
-    categoria: 'receita',
-    tipo:      'entrada',
-    valor:     reserva.valor,
-    noites:    reserva.noites,
-    criado_em: agora,
+    imovel:        reserva.imovel,
+    mes:           reserva.mes,
+    data:          reserva.dataFmt,
+    motivo:        'Airbnb',
+    hospede:       reserva.hospede,
+    categoria:     'receita',
+    tipo:          'entrada',
+    valor:         reserva.valor,
+    noites:        reserva.noites,
+    hora_checkin:  reserva.horaCheckin,
+    hora_checkout: reserva.horaCheckout,
+    criado_em:     agora,
   };
   pushFirebase_('/lancamentos', lancamento);
 
@@ -274,4 +308,150 @@ function diagnosticoReservas() {
       if (l.categoria === 'receita') dataAnterior = l.data;
     });
   });
+}
+
+// ── Instala o gatilho diário dos avisos de limpeza (rodar 1x) ────
+function configurarGatilhoLimpeza() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'enviarAvisosLimpeza') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('enviarAvisosLimpeza')
+    .timeBased()
+    .atHour(18)
+    .everyDays(1)
+    .create();
+
+  // Já roda uma vez agora, pra testar
+  enviarAvisosLimpeza();
+}
+
+// ── Ponto de entrada dos avisos de limpeza (roda no gatilho) ─────
+// Pra cada imóvel com telefone cadastrado, confere se amanhã tem
+// check-in e/ou checkout e manda uma notificação push (uma por
+// imóvel) pros celulares inscritos em /push_tokens. Tocar na
+// notificação abre o WhatsApp da equipe com a mensagem pronta.
+function enviarAvisosLimpeza() {
+  const amanha = new Date();
+  amanha.setDate(amanha.getDate() + 1);
+  const amanhaFmt = amanha.getFullYear() + '-' + pad2_(amanha.getMonth() + 1) + '-' + pad2_(amanha.getDate());
+
+  const resp = UrlFetchApp.fetch(FIREBASE_URL + '/lancamentos.json');
+  const lancamentos = JSON.parse(resp.getContentText()) || {};
+
+  let accessToken = null; // só busca o token OAuth2 se realmente precisar mandar algo
+
+  Object.keys(TELEFONE_LIMPEZA).forEach(imovel => {
+    const numero = TELEFONE_LIMPEZA[imovel];
+    if (!numero) return;
+
+    const checkins = [];
+    const checkouts = [];
+
+    Object.values(lancamentos).forEach(l => {
+      if (l.categoria !== 'receita' || l.imovel !== imovel || !l.data) return;
+      if (l.data === amanhaFmt) checkins.push(l);
+      const noites = parseInt(l.noites, 10) || 1;
+      if (somarDias_(l.data, noites) === amanhaFmt) checkouts.push(l);
+    });
+
+    if (!checkins.length && !checkouts.length) return; // nada amanhã nesse imóvel
+
+    let corpo = '';
+    checkouts.forEach(l => {
+      corpo += '🔴 Check-out às ' + (l.hora_checkout || '11:00') + (l.hospede ? ' — ' + l.hospede : '') + '\n';
+    });
+    checkins.forEach(l => {
+      corpo += '🟢 Check-in às ' + (l.hora_checkin || '14:00') + (l.hospede ? ' — ' + l.hospede : '') + '\n';
+    });
+    corpo = corpo.trim();
+
+    const mensagemWhats = 'Oi! Amanhã (' + formatarDataBR_(amanhaFmt) + ') na ' + NOME_IMOVEL[imovel] + ':\n\n' + corpo;
+    const link = 'https://wa.me/' + numero + '?text=' + encodeURIComponent(mensagemWhats);
+    const titulo = 'Limpeza ' + NOME_IMOVEL[imovel] + ' — amanhã';
+
+    if (!accessToken) accessToken = obterTokenAcessoFCM_();
+    enviarNotificacaoParaTodos_(accessToken, titulo, corpo, link);
+  });
+}
+
+function enviarNotificacaoParaTodos_(accessToken, titulo, corpo, link) {
+  const resp = UrlFetchApp.fetch(FIREBASE_URL + '/push_tokens.json');
+  const tokens = JSON.parse(resp.getContentText()) || {};
+  Object.keys(tokens).forEach(id => {
+    const fcmToken = tokens[id] && tokens[id].token;
+    if (!fcmToken) return;
+    try {
+      enviarPush_(accessToken, fcmToken, titulo, corpo, link);
+    } catch (erro) {
+      Logger.log('Falha ao enviar push (token ' + id + '): ' + erro);
+    }
+  });
+}
+
+function enviarPush_(accessToken, fcmToken, titulo, corpo, link) {
+  const payload = {
+    message: {
+      token: fcmToken,
+      data: { title: titulo, body: corpo, url: link },
+      webpush: { headers: { Urgency: 'high' } },
+    },
+  };
+  const resp = UrlFetchApp.fetch(
+    'https://fcm.googleapis.com/v1/projects/' + FCM_PROJECT_ID + '/messages:send',
+    {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + accessToken },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    }
+  );
+  const codigo = resp.getResponseCode();
+  if (codigo < 200 || codigo >= 300) {
+    throw new Error('FCM recusou o envio (HTTP ' + codigo + '): ' + resp.getContentText());
+  }
+}
+
+// Autentica como a conta de serviço (JWT assinado com RS256) e troca
+// por um token de acesso OAuth2 válido pra chamar a API do FCM.
+function obterTokenAcessoFCM_() {
+  const agora = Math.floor(Date.now() / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
+    iss: SERVICE_ACCOUNT_EMAIL,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: agora + 3600,
+    iat: agora,
+  };
+
+  const base64url_ = obj => Utilities.base64EncodeWebSafe(JSON.stringify(obj)).replace(/=+$/, '');
+  const semAssinar = base64url_(header) + '.' + base64url_(claim);
+  const assinatura = Utilities.computeRsaSha256Signature(semAssinar, SERVICE_ACCOUNT_PRIVATE_KEY);
+  const jwt = semAssinar + '.' + Utilities.base64EncodeWebSafe(assinatura).replace(/=+$/, '');
+
+  const resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+    method: 'post',
+    payload: {
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    },
+    muteHttpExceptions: true,
+  });
+  const codigo = resp.getResponseCode();
+  if (codigo < 200 || codigo >= 300) {
+    throw new Error('Falha ao autenticar com a conta de serviço (HTTP ' + codigo + '): ' + resp.getContentText());
+  }
+  return JSON.parse(resp.getContentText()).access_token;
+}
+
+function somarDias_(dataStr, dias) {
+  const [a, m, d] = dataStr.split('-').map(Number);
+  const data = new Date(a, m - 1, d);
+  data.setDate(data.getDate() + dias);
+  return data.getFullYear() + '-' + pad2_(data.getMonth() + 1) + '-' + pad2_(data.getDate());
+}
+function formatarDataBR_(dataStr) {
+  const [a, m, d] = dataStr.split('-');
+  return d + '/' + m + '/' + a;
 }
