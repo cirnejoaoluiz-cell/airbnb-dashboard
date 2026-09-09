@@ -652,6 +652,14 @@ tbody tr:hover td { background: var(--surface-2); }
 
 .ana-nota { font-size: 12px; color: var(--muted-2); line-height: 1.5; padding: 0 2px; margin-top: 2px; }
 
+.msg-preview {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 14px 16px; font-family: var(--font); font-size: 13.5px; line-height: 1.65;
+  white-space: pre-wrap; color: var(--text); max-height: 400px; overflow-y: auto;
+}
+.cal-form-actions .btn-add-lancamento.disabled { opacity: 0.5; pointer-events: none; }
+#msgWhatsappBtn { text-decoration: none; }
+
 .form-highlight { animation: formGlow 1.1s ease; }
 @keyframes formGlow {
   0%   { box-shadow: 0 0 0 3px rgba(61,126,255,0); }
@@ -1277,10 +1285,28 @@ tbody tr:hover td { background: var(--surface-2); }
         </div>
       </div>
       <div class="g-tab-pane" id="gtab-mensagens">
-        <div class="empty-workspace">
-          <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-          <h2>Mensagens</h2>
-          <p>Em construção — vamos montar essa aba juntos, aos poucos.</p>
+        <div class="table-card cal-card">
+          <div class="cal-header">
+            <button type="button" class="icon-btn" onclick="msgMudarMes(-1)" title="Mês anterior">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <h3 id="msgMesLabel">—</h3>
+            <button type="button" class="icon-btn" onclick="msgMudarMes(1)" title="Próximo mês">
+              <svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <h3>Mensagem para a limpeza</h3>
+          <pre class="msg-preview" id="msgPreview">—</pre>
+          <div class="cal-form-actions" style="margin-top:14px">
+            <a class="btn-primary btn-add-lancamento" id="msgWhatsappBtn" href="#" target="_blank" rel="noopener">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Enviar no WhatsApp
+            </a>
+            <button type="button" class="btn-secondary" onclick="copiarMensagemLimpeza()">Copiar</button>
+          </div>
         </div>
       </div>
       <div class="g-tab-pane" id="gtab-afazeres">
@@ -1427,6 +1453,7 @@ function selecionarImovelGestao(imovel) {
   try { cancelarEdicaoReserva(); } catch (e) { console.error('cancelarEdicaoReserva', e); }
   try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); }
   try { renderAnalise(); } catch (e) { console.error('renderAnalise', e); }
+  try { renderMensagens(); } catch (e) { console.error('renderMensagens', e); }
   haptic(8);
 }
 
@@ -1437,6 +1464,7 @@ function switchGestaoTab(name) {
   document.getElementById('gtab-' + name).classList.add('active');
   if (name === 'calendario') { try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); } }
   if (name === 'analise')    { try { renderAnalise(); } catch (e) { console.error('renderAnalise', e); } }
+  if (name === 'mensagens')  { try { renderMensagens(); } catch (e) { console.error('renderMensagens', e); } }
   haptic(6);
 }
 document.querySelectorAll('.g-tab').forEach(btn => {
@@ -2564,6 +2592,94 @@ async function excluirReservaCalendario(id) {
   if (excluiu && _calEditandoId === id) cancelarEdicaoReserva();
 }
 
+// ── Gestão › Mensagens ──────────────────────────────────────
+// Monta a mensagem de "Entrada/Saída" do mês pra mandar pra equipe de
+// limpeza, igual ela já é feita manualmente hoje — e como lê direto
+// dos lançamentos, atualiza sozinha conforme entram reservas novas.
+const TELEFONE_LIMPEZA = {
+  smg:  '5584994546064', // Carol
+  pn:   '5584998440479', // Isis
+  pipa: '5584994212815', // Jucele
+};
+const DIAS_SEMANA_ABREV = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+
+let _msgData = (() => { const d = new Date(); d.setDate(1); return d; })();
+
+function msgMudarMes(delta) {
+  _msgData.setMonth(_msgData.getMonth() + delta);
+  renderMensagens();
+  haptic(6);
+}
+
+function formatarEntradaSaida_(dataStr) {
+  const d = parseDataLocal(dataStr);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return dd + '/' + mm + ' ' + DIAS_SEMANA_ABREV[d.getDay()];
+}
+
+function montarMensagemLimpeza(imovel, ano, mesIdx) {
+  const reservas = Object.values(_lancamentos)
+    .filter(l => l.categoria === 'receita' && l.imovel === imovel && l.data)
+    .filter(l => {
+      const dt = parseDataLocal(l.data);
+      return dt.getFullYear() === ano && dt.getMonth() === mesIdx;
+    })
+    .sort((a, b) => a.data.localeCompare(b.data));
+
+  const nomeMes = new Date(ano, mesIdx, 1).toLocaleDateString('pt-BR', { month: 'long' }).toUpperCase();
+  if (!reservas.length) return nomeMes + '\n\nNenhuma reserva neste mês.';
+
+  const linhas = [nomeMes, ''];
+  reservas.forEach(l => {
+    linhas.push('Entrada ' + formatarEntradaSaida_(l.data));
+    linhas.push('Saída ' + formatarEntradaSaida_(checkoutDeReserva(l)));
+    linhas.push('');
+  });
+  linhas.pop(); // tira a última linha em branco sobrando
+  return linhas.join('\n');
+}
+
+function renderMensagens() {
+  const preview = document.getElementById('msgPreview');
+  if (!preview || !_gestaoImovel) return;
+
+  const imovel = _gestaoImovel;
+  const ano = _msgData.getFullYear(), mesIdx = _msgData.getMonth();
+  document.getElementById('msgMesLabel').textContent =
+    _msgData.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  const mensagem = montarMensagemLimpeza(imovel, ano, mesIdx);
+  preview.textContent = mensagem;
+
+  const numero = TELEFONE_LIMPEZA[imovel];
+  const btn = document.getElementById('msgWhatsappBtn');
+  btn.href = numero ? ('https://wa.me/' + numero + '?text=' + encodeURIComponent(mensagem)) : '#';
+  btn.classList.toggle('disabled', !numero);
+}
+
+async function copiarMensagemLimpeza() {
+  const texto = document.getElementById('msgPreview').textContent;
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast('Mensagem copiada');
+  } catch (e) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      toast('Mensagem copiada');
+    } catch (e2) {
+      toast('Não foi possível copiar', 'error');
+    }
+  }
+}
+
 // ── Gestão › Análise (SMG / PN) ────────────────────────────
 // Taxa de ocupação, diária média (ADR), duração média da estadia,
 // % de finais de semana vazios e RevPAR — calculados a partir dos
@@ -2778,6 +2894,7 @@ db.ref('/lancamentos').on('value', snap => {
   if (_dashData) { update(_dashData); renderMesMes(); }
   try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); }
   try { renderAnalise(); } catch (e) { console.error('renderAnalise', e); }
+  try { renderMensagens(); } catch (e) { console.error('renderMensagens', e); }
 });
 
 db.ref('/comissoes_manual').on('value', snap => {
