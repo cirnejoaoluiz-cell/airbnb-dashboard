@@ -23,6 +23,7 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -224,6 +225,12 @@ body.valores-ocultos .money-chart {
 .eye-btn .icon-off { display: none; }
 body.valores-ocultos .eye-btn .icon-on  { display: none; }
 body.valores-ocultos .eye-btn .icon-off { display: block; }
+
+#notifyBtn[hidden] { display: none; }
+#notifyBtn .icon-bell-on { display: none; }
+#notifyBtn.ativo .icon-bell-off { display: none; }
+#notifyBtn.ativo .icon-bell-on  { display: block; }
+#notifyBtn.ativo { color: var(--primary); border-color: var(--primary); }
 
 /* ── Charts ── */
 .charts-row {
@@ -839,6 +846,10 @@ tbody tr:hover td { background: var(--surface-2); }
     <button class="icon-btn" id="refreshBtn" title="Atualizar" onclick="manualRefresh()">
       <svg class="icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
     </button>
+    <button class="icon-btn" id="notifyBtn" title="Ativar avisos de limpeza" onclick="ativarNotificacoes()" hidden>
+      <svg class="icon icon-bell-off" viewBox="0 0 24 24"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      <svg class="icon icon-bell-on" viewBox="0 0 24 24"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg>
+    </button>
     <div class="status-bar">
       <div class="dot" id="dot"></div>
       <span id="statusText">Conectando...</span>
@@ -1332,6 +1343,13 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// ════════════════════════════════════════════════════════════
+//  Chave pública VAPID — gere em console.firebase.google.com
+//  → Configurações do projeto → Cloud Messaging → "Gerar par de
+//  chaves" (em "Certificados push da Web") e cole aqui.
+// ════════════════════════════════════════════════════════════
+const VAPID_PUBLIC_KEY = 'COLE_AQUI_A_CHAVE_PUBLICA_VAPID';
+
 // ── Helpers ───────────────────────────────────────────────
 const R$ = v => {
   const n = parseFloat(v);
@@ -1544,6 +1562,66 @@ window.addEventListener('appinstalled', () => {
   document.getElementById('installBtn').classList.remove('show');
   toast('App instalado com sucesso');
 });
+
+// ── Notificações push — avisos de limpeza (check-in/checkout) ────
+// Ao ativar, o navegador se inscreve no Firebase Cloud Messaging e o
+// token gerado é salvo em /push_tokens. O Apps Script usa esses
+// tokens pra mandar o aviso do dia seguinte pra cada imóvel — ao
+// tocar na notificação, abre o WhatsApp da equipe com a mensagem
+// pronta (ver sw.js e automations/AirbnbParaFirebase.gs).
+async function notificacoesSuportadas() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false;
+  if (!firebase.messaging || !firebase.messaging.isSupported) return false;
+  try { return await firebase.messaging.isSupported(); } catch (e) { return false; }
+}
+
+async function initNotificacoes() {
+  if (!(await notificacoesSuportadas())) return;
+  const btn = document.getElementById('notifyBtn');
+  btn.hidden = false;
+  if (Notification.permission === 'granted' && localStorage.getItem('notificacoesAtivadas') === '1') {
+    btn.classList.add('ativo');
+  }
+}
+
+async function ativarNotificacoes() {
+  if (!(await notificacoesSuportadas())) { toast('Seu navegador não suporta notificações push', 'error'); return; }
+  if (VAPID_PUBLIC_KEY.indexOf('COLE_AQUI') === 0) {
+    toast('Falta configurar a chave VAPID no código', 'error');
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    toast('Notificações bloqueadas — ative nas configurações do navegador', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('notifyBtn');
+  try {
+    const permissao = await Notification.requestPermission();
+    if (permissao !== 'granted') { toast('Permissão de notificação não concedida', 'error'); return; }
+
+    const reg = await navigator.serviceWorker.ready;
+    const messaging = firebase.messaging();
+    const token = await messaging.getToken({ vapidKey: VAPID_PUBLIC_KEY, serviceWorkerRegistration: reg });
+    if (!token) throw new Error('token vazio');
+
+    await db.ref('/push_tokens/' + token.replace(/[.#$\[\]/]/g, '_')).set({
+      token,
+      criado_em: new Date().toISOString(),
+      user_agent: navigator.userAgent,
+    });
+
+    localStorage.setItem('notificacoesAtivadas', '1');
+    btn.classList.add('ativo');
+    toast('Notificações ativadas');
+    haptic(10);
+  } catch (e) {
+    console.error('Erro ao ativar notificações:', e);
+    toast('Falha ao ativar notificações', 'error');
+  }
+}
+
+initNotificacoes();
 
 // ── Charts storage ────────────────────────────────────────
 const charts = {};

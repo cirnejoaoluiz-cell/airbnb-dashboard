@@ -58,3 +58,33 @@ self.addEventListener('fetch', e => {
     })
   );
 });
+
+// ── Notificações push — avisos de limpeza ─────────────────────────
+// Recebe o aviso do dia seguinte (check-in/checkout) mandado pelo
+// Apps Script via Firebase Cloud Messaging, mostra como notificação
+// nativa, e ao tocar abre o WhatsApp da equipe com a mensagem pronta.
+self.addEventListener('push', e => {
+  let payload = {};
+  try {
+    const json = e.data ? e.data.json() : {};
+    payload = json.data || json.notification || json;
+  } catch (err) {
+    payload = { title: 'Dashboard Locações', body: e.data ? e.data.text() : '' };
+  }
+
+  const titulo = payload.title || 'Dashboard Locações';
+  const opcoes = {
+    body: payload.body || '',
+    icon: './icon.svg',
+    badge: './icon.svg',
+    data: { url: payload.url || './' },
+  };
+
+  e.waitUntil(self.registration.showNotification(titulo, opcoes));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(self.clients.openWindow(url));
+});

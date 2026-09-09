@@ -62,3 +62,44 @@ data, marcando com ⚠️ qualquer receita cuja data é igual à da anterior
 — sinal forte de duplicata (já que cada imóvel só recebe uma reserva
 por vez). Rode pelo mesmo menu de "Executar" e veja o resultado em
 "Execuções" (ícone de relógio) no menu lateral.
+
+## Avisos de limpeza (WhatsApp)
+
+Todo dia às 18h, se tiver check-in ou checkout no dia seguinte em
+algum imóvel, o dashboard manda uma **notificação push** pro celular.
+Ao tocar nela, abre o WhatsApp da equipe de limpeza daquele imóvel
+com a mensagem já pronta (horário, hóspede quando disponível) — você
+só confere e manda.
+
+Os números de cada equipe ficam em `TELEFONE_LIMPEZA`, no topo do
+`AirbnbParaFirebase.gs`.
+
+### Como funciona por baixo dos panos
+
+1. O app (PWA) pede permissão de notificação e se inscreve no
+   **Firebase Cloud Messaging** — o "endereço" gerado (token) fica
+   salvo em `/push_tokens` no Firebase
+2. O gatilho diário do Apps Script lê `/lancamentos`, monta a
+   mensagem de cada imóvel com check-in/checkout amanhã, e manda a
+   notificação via FCM pra todos os tokens cadastrados
+3. O Service Worker do app (`sw.js`) recebe a notificação e a mostra;
+   ao tocar, abre `wa.me/<número>?text=<mensagem>` — que já abre o
+   WhatsApp com a conversa e o texto prontos
+
+### Instalação (só uma vez)
+
+1. No app, toque no ícone de sino no topo (aparece só se seu
+   navegador suportar notificação push) e permita as notificações
+2. Em [console.firebase.google.com](https://console.firebase.google.com),
+   projeto **locacao-dashboard**:
+   - **Configurações do projeto → Cloud Messaging** → gere um "par de
+     chaves" em Certificados push da Web → copie a chave pública e
+     cole em `VAPID_PUBLIC_KEY`, no `index.html`
+   - **Configurações do projeto → Contas de serviço** → "Gerar nova
+     chave privada" → baixa um `.json` → copie `client_email` pra
+     `SERVICE_ACCOUNT_EMAIL` e `private_key` pra
+     `SERVICE_ACCOUNT_PRIVATE_KEY`, no `AirbnbParaFirebase.gs`
+     (mantenha as quebras de linha `\n` do `private_key` exatamente
+     como estão no arquivo)
+3. No Apps Script, escolha a função `configurarGatilhoLimpeza` no
+   menu e clique em Executar (instala o gatilho e já testa uma vez)
