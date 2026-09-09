@@ -44,3 +44,21 @@ mesma reserva duas vezes.
 Se algum e-mail não puder ser interpretado (formato mudou, anúncio
 novo não cadastrado, etc.), ele recebe o rótulo `Locacoes/Revisar` no
 Gmail, pra você lançar manualmente, e você recebe um e-mail avisando.
+
+⚠️ **Atenção na primeira execução**: como a busca considera qualquer
+e-mail de "Reserva confirmada" que ainda não tenha o rótulo
+`Locacoes/Importado`, a primeira vez que o script roda ele processa
+até 50 e-mails de uma vez — incluindo reservas antigas que você já
+possa ter lançado manualmente antes. Isso gera lançamentos duplicados.
+Antes de rodar `configurarGatilho` pela primeira vez, vale a pena
+lançar manualmente só reservas bem recentes (ou nenhuma), deixando o
+script cuidar do resto.
+
+### Conferindo duplicatas
+
+A função `diagnosticoReservas` (só leitura, não altera nada) lista
+todos os lançamentos de receita/comissão de SMG e PN, ordenados por
+data, marcando com ⚠️ qualquer receita cuja data é igual à da anterior
+— sinal forte de duplicata (já que cada imóvel só recebe uma reserva
+por vez). Rode pelo mesmo menu de "Executar" e veja o resultado em
+"Execuções" (ícone de relógio) no menu lateral.

@@ -242,3 +242,36 @@ function enviarResumo_(importados, comErro) {
   }
   MailApp.sendEmail(destinatario, 'Dashboard Locações — importação automática do Airbnb', corpo);
 }
+
+// ── Diagnóstico: lista tudo que está lançado, pra achar duplicatas ──
+// Só lê o Firebase, não altera nada. Rode esta função (mesmo menu de
+// "Executar" das outras) e depois abra "Execuções" (ícone de relógio)
+// > clique na execução > veja o log. Toda receita cuja data é igual à
+// da linha anterior do mesmo imóvel vem marcada com ⚠️ — geralmente é
+// duplicata (uma lançada manualmente e outra importada do Airbnb).
+function diagnosticoReservas() {
+  const resp = UrlFetchApp.fetch(FIREBASE_URL + '/lancamentos.json');
+  const dados = JSON.parse(resp.getContentText()) || {};
+
+  ['smg', 'pn'].forEach(imovel => {
+    const linhas = Object.entries(dados)
+      .filter(([, l]) => l.imovel === imovel && (l.categoria === 'receita' || l.categoria === 'comissao'))
+      .map(([id, l]) => Object.assign({ id: id }, l))
+      .sort((a, b) => (a.data || '').localeCompare(b.data || '') || (a.categoria || '').localeCompare(b.categoria || ''));
+
+    Logger.log('═══════════ ' + imovel.toUpperCase() + ' (' + linhas.length + ' lançamentos) ═══════════');
+    let dataAnterior = null;
+    linhas.forEach(l => {
+      const duplicataProvavel = (l.categoria === 'receita' && l.data === dataAnterior);
+      Logger.log(
+        (l.categoria === 'receita' ? 'RECEITA ' : 'comissão') +
+        ' | ' + l.data + ' | noites:' + (l.noites || 1) +
+        ' | R$' + l.valor + ' | "' + l.motivo + '"' +
+        ' | criado:' + (l.criado_em || '').slice(0, 16) +
+        ' | id:' + l.id +
+        (duplicataProvavel ? '  ⚠️ MESMA DATA DA RECEITA ANTERIOR — provável duplicata' : '')
+      );
+      if (l.categoria === 'receita') dataAnterior = l.data;
+    });
+  });
+}
