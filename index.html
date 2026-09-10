@@ -3020,13 +3020,19 @@ function update(data) {
   try { renderTableComissoes(merged); } catch(e) { console.error('renderTableComissoes', e); }
   try { renderMesMes(); } catch(e) { console.error('renderMesMes', e); }
 
-  const dot = document.getElementById('dot');
-  const txt = document.getElementById('statusText');
-  dot.className = 'dot live';
-  const ts = data.ultima_atualizacao
-    ? new Date(data.ultima_atualizacao).toLocaleString('pt-BR') : '—';
-  txt.textContent = 'Ao vivo · ' + ts;
+  document.getElementById('dot').className = 'dot live';
+  atualizarRelogioStatus();
 }
+
+// ── Relógio do status "Ao vivo" — mostra a hora atual de verdade,
+// não a última atualização salva no Firebase (que podia ficar
+// parada, de uma importação antiga) ──────────────────────────
+function atualizarRelogioStatus() {
+  const txt = document.getElementById('statusText');
+  if (!txt) return;
+  txt.textContent = 'Ao vivo · ' + new Date().toLocaleString('pt-BR');
+}
+setInterval(atualizarRelogioStatus, 1000);
 
 // ── Firebase listeners ────────────────────────────────────
 try { populateMesSelects(); } catch(e) { console.warn('populateMesSelects error:', e); }
