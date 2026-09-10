@@ -660,6 +660,42 @@ tbody tr:hover td { background: var(--surface-2); }
 .cal-form-actions .btn-add-lancamento.disabled { opacity: 0.5; pointer-events: none; }
 #msgWhatsappBtn { text-decoration: none; }
 
+/* ── Gestão › Afazeres ── */
+.afazer-form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+.afazer-form-row input[type="text"] {
+  flex: 1; min-width: 180px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px;
+  font-size: 13.5px; font-family: var(--font);
+}
+.afazer-form-row input[type="text"]:focus { outline: none; border-color: var(--primary); }
+.afazer-form-row input[type="text"]::placeholder { color: var(--muted-2); }
+.afazer-urgente-toggle {
+  display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted);
+  cursor: pointer; white-space: nowrap;
+}
+.afazer-urgente-toggle input { accent-color: var(--red); }
+#formAfazer .btn-primary { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+#formAfazer .btn-primary .icon { width: 15px; height: 15px; }
+
+.afazeres-lista { display: flex; flex-direction: column; gap: 8px; }
+.afazer-item {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); transition: opacity 0.3s;
+}
+.afazer-item.urgente { border-color: var(--red); }
+.afazer-item.feito { opacity: 0.55; }
+.afazer-item.feito .afazer-texto { text-decoration: line-through; }
+.afazer-texto { flex: 1; min-width: 140px; font-size: 13.5px; color: var(--text); }
+.afazer-badge-urgente {
+  display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 999px;
+  background: var(--red-soft); color: var(--red); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.4px; vertical-align: middle;
+}
+.afazer-status .toggle-btn[data-status="feito"].active        { color: var(--green); }
+.afazer-status .toggle-btn[data-status="em_progresso"].active { color: var(--primary); }
+.afazer-status .toggle-btn[data-status="a_fazer"].active      { color: var(--text); }
+
 .form-highlight { animation: formGlow 1.1s ease; }
 @keyframes formGlow {
   0%   { box-shadow: 0 0 0 3px rgba(61,126,255,0); }
@@ -1298,10 +1334,23 @@ tbody tr:hover td { background: var(--surface-2); }
         </div>
       </div>
       <div class="g-tab-pane" id="gtab-afazeres">
-        <div class="empty-workspace">
-          <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="8 12 11 15 16 9"/></svg></div>
-          <h2>Afazeres</h2>
-          <p>Em construção — vamos montar essa aba juntos, aos poucos.</p>
+        <div class="table-card">
+          <h3>Afazeres</h3>
+          <form id="formAfazer" onsubmit="addAfazer(event)">
+            <div class="afazer-form-row">
+              <input type="text" id="afazerTexto" placeholder="Ex.: Trocar lâmpada do banheiro" required>
+              <label class="afazer-urgente-toggle">
+                <input type="checkbox" id="afazerUrgente">
+                Urgente
+              </label>
+              <button type="submit" class="btn-primary">
+                <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Adicionar
+              </button>
+            </div>
+          </form>
+
+          <div class="afazeres-lista" id="afazeresLista"></div>
         </div>
       </div>
     </div>
@@ -1442,6 +1491,7 @@ function selecionarImovelGestao(imovel) {
   try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); }
   try { renderAnalise(); } catch (e) { console.error('renderAnalise', e); }
   try { renderMensagens(); } catch (e) { console.error('renderMensagens', e); }
+  try { renderAfazeres(); } catch (e) { console.error('renderAfazeres', e); }
   haptic(8);
 }
 
@@ -1453,6 +1503,7 @@ function switchGestaoTab(name) {
   if (name === 'calendario') { try { renderCalendario(); } catch (e) { console.error('renderCalendario', e); } }
   if (name === 'analise')    { try { renderAnalise(); } catch (e) { console.error('renderAnalise', e); } }
   if (name === 'mensagens')  { try { renderMensagens(); } catch (e) { console.error('renderMensagens', e); } }
+  if (name === 'afazeres')   { try { renderAfazeres(); } catch (e) { console.error('renderAfazeres', e); } }
   haptic(6);
 }
 document.querySelectorAll('.g-tab').forEach(btn => {
@@ -2660,6 +2711,96 @@ async function copiarMensagemLimpeza() {
   }
 }
 
+// ── Gestão › Afazeres ───────────────────────────────────────
+let _afazeres = {};
+const AFAZER_HORAS_PARA_SUMIR = 24; // some da lista esse tempo depois de marcado como Feito
+const STATUS_LABEL_AFAZER = { a_fazer: 'A fazer', em_progresso: 'Em progresso', feito: 'Feito' };
+const STATUS_ORDEM_AFAZER = { em_progresso: 0, a_fazer: 1, feito: 2 };
+
+function escapeHtml_(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function addAfazer(e) {
+  e.preventDefault();
+  const input = document.getElementById('afazerTexto');
+  const texto = input.value.trim();
+  if (!texto) return;
+  const urgenteEl = document.getElementById('afazerUrgente');
+
+  await db.ref('/afazeres').push({
+    imovel: _gestaoImovel,
+    texto,
+    urgente: urgenteEl.checked,
+    status: 'a_fazer',
+    criado_em: new Date().toISOString(),
+  });
+
+  input.value = '';
+  urgenteEl.checked = false;
+  input.focus();
+  haptic(8);
+}
+
+async function mudarStatusAfazer(id, status) {
+  await db.ref('/afazeres/' + id).update({
+    status,
+    concluido_em: status === 'feito' ? new Date().toISOString() : null,
+  });
+  haptic(6);
+}
+
+async function excluirAfazer(id) {
+  if (!(await confirmDialog('Excluir este afazer?'))) return;
+  await db.ref('/afazeres/' + id).remove();
+  toast('Afazer excluído');
+}
+
+// Limpeza automática — afazeres concluídos há mais de 24h somem sozinhos.
+// Roda a cada render e também num intervalo, pra sumir mesmo com o app
+// aberto e parado numa aba.
+function limparAfazeresConcluidosAntigos_() {
+  const agora = Date.now();
+  Object.entries(_afazeres).forEach(([id, a]) => {
+    if (a.status !== 'feito' || !a.concluido_em) return;
+    const concluidoEm = new Date(a.concluido_em).getTime();
+    if (isNaN(concluidoEm)) return;
+    if ((agora - concluidoEm) / 3600000 >= AFAZER_HORAS_PARA_SUMIR) {
+      db.ref('/afazeres/' + id).remove();
+    }
+  });
+}
+setInterval(() => { try { limparAfazeresConcluidosAntigos_(); } catch (e) {} }, 5 * 60 * 1000);
+
+function renderAfazeres() {
+  const lista = document.getElementById('afazeresLista');
+  if (!lista || !_gestaoImovel) return;
+
+  limparAfazeresConcluidosAntigos_();
+
+  const imovel = _gestaoImovel;
+  const itens = Object.entries(_afazeres)
+    .filter(([, a]) => a.imovel === imovel)
+    .sort((a, b) => {
+      const oa = STATUS_ORDEM_AFAZER[a[1].status] ?? 1, ob = STATUS_ORDEM_AFAZER[b[1].status] ?? 1;
+      if (oa !== ob) return oa - ob;
+      if (!!a[1].urgente !== !!b[1].urgente) return a[1].urgente ? -1 : 1;
+      return (a[1].criado_em || '').localeCompare(b[1].criado_em || '');
+    });
+
+  lista.innerHTML = itens.length ? itens.map(([id, a]) => `
+    <div class="afazer-item${a.urgente ? ' urgente' : ''}${a.status === 'feito' ? ' feito' : ''}">
+      <div class="afazer-texto">${escapeHtml_(a.texto)}${a.urgente ? '<span class="afazer-badge-urgente">Urgente</span>' : ''}</div>
+      <div class="toggle-group afazer-status">
+        <button type="button" class="toggle-btn${a.status === 'a_fazer' ? ' active' : ''}" data-status="a_fazer" onclick="mudarStatusAfazer('${id}','a_fazer')">A fazer</button>
+        <button type="button" class="toggle-btn${a.status === 'em_progresso' ? ' active' : ''}" data-status="em_progresso" onclick="mudarStatusAfazer('${id}','em_progresso')">Em progresso</button>
+        <button type="button" class="toggle-btn${a.status === 'feito' ? ' active' : ''}" data-status="feito" onclick="mudarStatusAfazer('${id}','feito')">Feito</button>
+      </div>
+      <button class="btn-delete" onclick="excluirAfazer('${id}')" title="Excluir">${ICON_TRASH}</button>
+    </div>
+  `).join('') : '<p class="empty">Nenhum afazer por aqui ainda.</p>';
+}
+
 // ── Gestão › Análise (SMG / PN) ────────────────────────────
 // Taxa de ocupação, diária média (ADR), duração média da estadia,
 // % de finais de semana vazios e RevPAR — calculados a partir dos
@@ -2897,6 +3038,11 @@ db.ref('/lancamentos').on('value', snap => {
 db.ref('/comissoes_manual').on('value', snap => {
   _comissoesManual = snap.val() || {};
   if (_dashData) renderTableComissoes(mergeLancamentos(_dashData));
+});
+
+db.ref('/afazeres').on('value', snap => {
+  _afazeres = snap.val() || {};
+  try { renderAfazeres(); } catch (e) { console.error('renderAfazeres', e); }
 });
 
 db.ref('/dashboard').on('value', snap => {
