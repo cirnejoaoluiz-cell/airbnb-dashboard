@@ -1200,12 +1200,6 @@ tbody tr:hover td { background: var(--surface-2); }
             </form>
           </div>
         </div>
-
-        <div class="empty-workspace" id="calIndisponivel" hidden>
-          <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-          <h2>Calendário</h2>
-          <p>A Pipa não tem integração com o Airbnb, então por enquanto o calendário fica disponível só pra SMG e PN.</p>
-        </div>
       </div>
       <div class="g-tab-pane" id="gtab-analise">
         <div id="anaAtivo">
@@ -1275,13 +1269,7 @@ tbody tr:hover td { background: var(--surface-2); }
             </div>
           </div>
 
-          <p class="ana-nota">Calculado a partir dos lançamentos de receita com check-in e noites cadastrados (Mês a Mês ou Calendário). Meses cujo histórico veio só da planilha antiga, sem nenhum lançamento manual, não entram nessa análise.</p>
-        </div>
-
-        <div class="empty-workspace" id="anaIndisponivel" hidden>
-          <div class="ew-icon"><svg class="icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
-          <h2>Análise</h2>
-          <p>A Pipa não tem integração com o Airbnb, então por enquanto a análise de ocupação fica disponível só pra SMG e PN.</p>
+          <p class="ana-nota">Calculado a partir dos lançamentos de receita com check-in e noites cadastrados (Mês a Mês ou Calendário). Meses cujo histórico veio só da planilha antiga, sem nenhum lançamento manual, não entram nessa análise. Na Pipa, quando não há lançamento detalhado no mês, o RevPAR é estimado a partir da comissão manual (10% do faturamento) — os demais indicadores continuam precisando de reserva lançada no Calendário.</p>
         </div>
       </div>
       <div class="g-tab-pane" id="gtab-mensagens">
@@ -2417,15 +2405,7 @@ function calMudarMes(delta) {
 function renderCalendario() {
   const painelAtivo = document.getElementById('calAtivo');
   if (!painelAtivo || !_gestaoImovel) return;
-
-  const painelIndisponivel = document.getElementById('calIndisponivel');
-  if (_gestaoImovel === 'pipa') {
-    painelAtivo.hidden = true;
-    painelIndisponivel.hidden = false;
-    return;
-  }
   painelAtivo.hidden = false;
-  painelIndisponivel.hidden = true;
 
   const imovel = _gestaoImovel;
   const ano = _calData.getFullYear(), mesIdx = _calData.getMonth();
@@ -2757,18 +2737,34 @@ function metricasAnaliseDoMes(imovel, ano, mesIdx, ocupacaoData) {
   };
 }
 
+// A Pipa é acompanhada por comissão manual mensal (10% do faturamento —
+// diferente dos 17,5% de SMG/PN), sem lançamento por reserva. Quando não
+// há lançamentos detalhados naquele mês, estima a receita a partir da
+// comissão só pra dar pra calcular o RevPAR; os demais indicadores
+// continuam indisponíveis, já que dependem de dado por reserva (noites,
+// check-in etc.) que a comissão agregada não tem.
+function metricasComFallbackReceita_(imovel, ano, mesIdx, ocupacaoData) {
+  const m = metricasAnaliseDoMes(imovel, ano, mesIdx, ocupacaoData);
+  if (imovel !== 'pipa' || !m.semDados) return m;
+
+  const mesKey = MESES_LISTA[mesIdx] + '/' + String(ano).slice(-2);
+  const comissaoDoMes = Object.values(_comissoesManual)
+    .filter(r => mesMatch(r.mes, mesKey))
+    .reduce((s, r) => s + (r.pipa || 0), 0);
+  if (!comissaoDoMes) return m;
+
+  const receitaEstimada = comissaoDoMes * 10; // comissão = 10% do faturamento
+  return Object.assign({}, m, {
+    receitaEstimada,
+    revpar: m.diasNoMes ? receitaEstimada / m.diasNoMes : 0,
+    revparEstimado: true,
+  });
+}
+
 function renderAnalise() {
   const painelAtivo = document.getElementById('anaAtivo');
   if (!painelAtivo || !_gestaoImovel) return;
-
-  const painelIndisponivel = document.getElementById('anaIndisponivel');
-  if (_gestaoImovel === 'pipa') {
-    painelAtivo.hidden = true;
-    painelIndisponivel.hidden = false;
-    return;
-  }
   painelAtivo.hidden = false;
-  painelIndisponivel.hidden = true;
 
   const imovel = _gestaoImovel;
   const ano = _anaData.getFullYear(), mesIdx = _anaData.getMonth();
@@ -2776,7 +2772,7 @@ function renderAnalise() {
     _anaData.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const ocupacaoData = construirDadosOcupacao(imovel);
-  const m = metricasAnaliseDoMes(imovel, ano, mesIdx, ocupacaoData);
+  const m = metricasComFallbackReceita_(imovel, ano, mesIdx, ocupacaoData);
 
   const setTexto = (id, texto) => { const el = document.getElementById(id); if (el) el.textContent = texto; };
 
@@ -2792,8 +2788,9 @@ function renderAnalise() {
   setTexto('anaKpiFds', m.totalFDS ? Math.round(m.pctFdsVazios) + '%' : '—');
   setTexto('anaSubFds', m.totalFDS ? `${m.fdsVazios} de ${m.totalFDS} finais de semana` : 'Sem finais de semana no mês');
 
-  setTexto('anaKpiRevpar', m.semDados ? '—' : R$(m.revpar));
-  setTexto('anaSubRevpar', m.semDados ? 'Sem lançamentos neste mês' : 'Receita ÷ dias do mês');
+  const revparDisponivel = !m.semDados || m.revparEstimado;
+  setTexto('anaKpiRevpar', revparDisponivel ? R$(m.revpar) : '—');
+  setTexto('anaSubRevpar', m.revparEstimado ? 'Estimado a partir da comissão (10%)' : (m.semDados ? 'Sem lançamentos neste mês' : 'Receita ÷ dias do mês'));
 
   renderTendenciaAnalise(imovel, ocupacaoData);
 }
@@ -2805,9 +2802,9 @@ function renderTendenciaAnalise(imovel, ocupacaoData) {
 
   const pontosOcupacao = [], pontosRevpar = [];
   meses.forEach(d => {
-    const mm = metricasAnaliseDoMes(imovel, d.getFullYear(), d.getMonth(), ocupacaoData);
+    const mm = metricasComFallbackReceita_(imovel, d.getFullYear(), d.getMonth(), ocupacaoData);
     pontosOcupacao.push(mm.semDados ? null : Math.round(mm.taxaOcupacao));
-    pontosRevpar.push(mm.semDados ? null : Math.round(mm.revpar));
+    pontosRevpar.push((!mm.semDados || mm.revparEstimado) ? Math.round(mm.revpar) : null);
   });
   const labels = meses.map(d => {
     const nome = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
