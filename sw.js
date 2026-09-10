@@ -69,10 +69,10 @@ self.addEventListener('push', e => {
     const json = e.data ? e.data.json() : {};
     payload = json.data || json.notification || json;
   } catch (err) {
-    payload = { title: 'Dashboard Locações', body: e.data ? e.data.text() : '' };
+    payload = { title: 'HostDesk', body: e.data ? e.data.text() : '' };
   }
 
-  const titulo = payload.title || 'Dashboard Locações';
+  const titulo = payload.title || 'HostDesk';
   const opcoes = {
     body: payload.body || '',
     icon: './icon.svg',

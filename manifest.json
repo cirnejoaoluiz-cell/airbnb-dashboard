@@ -1,7 +1,7 @@
 {
-  "name": "Dashboard Locações — Financeiro",
-  "short_name": "Locações",
-  "description": "Acompanhamento financeiro de locações — SMG, PN e Pipa",
+  "name": "HostDesk — Central de Locações",
+  "short_name": "HostDesk",
+  "description": "Central de locações — SMG, PN e Pipa",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
