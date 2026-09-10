@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Dashboard Locações — Financeiro</title>
+<title>HostDesk — Central de Locações</title>
 
 <!-- PWA -->
 <meta name="theme-color" content="#121214">
@@ -874,8 +874,8 @@ tbody tr:hover td { background: var(--surface-2); }
       <svg class="icon" viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="5"/><line x1="18" y1="20" x2="18" y2="14"/></svg>
     </div>
     <div>
-      <h1>Dashboard Locações</h1>
-      <span>Acompanhamento Financeiro</span>
+      <h1>HostDesk</h1>
+      <span>Central de Locações</span>
     </div>
   </div>
   <div class="header-actions">
@@ -2305,7 +2305,7 @@ function gerarApuradoPDF() {
       ${linhas.map(([label, valor]) => `<tr><td>${label}</td><td>${valor}</td></tr>`).join('')}
       <tr class="pr-total"><td>Lucro Líquido</td><td>${R$(row.liquido)}</td></tr>
     </table>
-    <p class="pr-footer">Gerado em ${new Date().toLocaleString('pt-BR')} — Dashboard Locações</p>
+    <p class="pr-footer">Gerado em ${new Date().toLocaleString('pt-BR')} — HostDesk</p>
   `;
 
   haptic(10);
