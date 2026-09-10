@@ -1742,11 +1742,11 @@ function renderKPIs(data) {
   const totalComissaoSMGPN = filtrado.reduce((s, r) => s + (r.comissao || 0), 0);
   const totalPipa = Object.values(_comissoesManual).filter(r => dentroDoMesAtual(r.mes)).reduce((s, r) => s + (r.pipa || 0), 0);
   const totalComissao = totalComissaoSMGPN + totalPipa;
-  // Total de reservas = entradas históricas do Excel + lançamentos de receita entrada
-  const totalEntradas = filtrado.reduce((s, r) => s + (r.entradas || 0), 0)
-    + Object.values(_lancamentos).filter(l =>
-        l.categoria === 'receita' && l.tipo === 'entrada' && dentroDoMesAtual(l.mes)
-      ).length;
+  // Total de reservas = campo "entradas" de cada linha SMG/PN já mesclada
+  // (mergeLancamentos recalcula esse campo somando excel + lançamentos
+  // manuais mês a mês — somar de novo aqui contaria tudo em dobro).
+  // A Pipa não entra nos checkins/receita da Visão Geral, só na comissão.
+  const totalEntradas = filtrado.reduce((s, r) => s + (r.entradas || 0), 0);
 
   const container = document.getElementById('kpiCards');
   if (!container.dataset.built) {
@@ -2171,8 +2171,12 @@ function mergeLancamentos(data) {
     if (t.saida)   { row.outros  += t.saida; }
   });
 
-  // Lançamentos manuais (com categoria)
+  // Lançamentos manuais (com categoria). A Pipa não entra aqui — ela não
+  // tem receita/checkins na Visão Geral, só a comissão manual (somada à
+  // parte, em renderKPIs). Sem esse filtro, qualquer lançamento da Pipa
+  // caía por engano na coluna da PN.
   Object.values(_lancamentos).forEach(l => {
+    if (l.imovel !== 'smg' && l.imovel !== 'pn') return;
     const arr = l.imovel === 'smg' ? d.smg : d.pn;
     if (!arr) return;
     const row = getRow(arr, l.mes);
