@@ -1717,10 +1717,11 @@ function animateNumber(el, from, to, formatFn, duration = 650) {
   requestAnimationFrame(frame);
 }
 
-// Um mês (ex.: "out/26") já aconteceu ou está em curso, em vez de ser uma
-// reserva futura já lançada no Calendário? Usado em toda a Visão Geral
-// (KPIs e os 3 gráficos) pra nunca somar meses que ainda não chegaram —
-// mesmo que já tenham reserva confirmada.
+// Um mês (ex.: "out/26") é do ano corrente e já aconteceu ou está em
+// curso — nem é de um ano passado, nem é uma reserva futura já lançada
+// no Calendário? Usado em toda a Visão Geral (KPIs e os 3 gráficos) pra
+// somar só "esse ano, até o mês atual" — igual à aba Comissões, que
+// também só mostra o ano corrente.
 function dentroDoMesAtual(mes) {
   const mesesPt2 = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   const now2 = new Date();
@@ -1733,7 +1734,7 @@ function dentroDoMesAtual(mes) {
   const ano = anoRaw < 100 ? 2000 + anoRaw : anoRaw;
   const idx = mesesPt2.indexOf(mesStr);
   if (idx < 0) return true;
-  return ano < anoAtual2 || (ano === anoAtual2 && idx <= idxAtual2);
+  return ano === anoAtual2 && idx <= idxAtual2;
 }
 
 function renderKPIs(data) {
