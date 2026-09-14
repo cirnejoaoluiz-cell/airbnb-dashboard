@@ -38,6 +38,8 @@
   /* Verde — só para positivo/lucro. Vermelho — só para negativo/alerta */
   --green:      #2fbf71;
   --green-soft: rgba(47,191,113,0.13);
+  /* Verde neon — só para as bolinhas de estadia no calendário */
+  --neon-green: #39ff14;
   --red:        #ef4444;
   --red-soft:   rgba(239,68,68,0.13);
   --yellow:     #d4a13d;
@@ -636,13 +638,13 @@ tbody tr:hover td { background: var(--surface-2); }
 .cal-day.selected { background: var(--primary-soft); border-color: var(--primary); }
 .cal-dots { display: flex; gap: 2px; height: 5px; }
 .cal-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
-.cal-dot.azul  { background: var(--primary); }
+.cal-dot.azul  { background: var(--neon-green); box-shadow: 0 0 4px var(--neon-green); }
 
 .cal-lista { display: flex; flex-direction: column; gap: 2px; }
 .cal-item { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
 .cal-item:last-child { border-bottom: none; }
 .cal-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.cal-item-dot.azul  { background: var(--primary); }
+.cal-item-dot.azul  { background: var(--neon-green); box-shadow: 0 0 4px var(--neon-green); }
 .cal-item-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cal-item-info strong { font-size: 13px; }
 .cal-item-info span { font-size: 12px; color: var(--muted); }
