@@ -103,3 +103,52 @@ Os números de cada equipe ficam em `TELEFONE_LIMPEZA`, no topo do
      como estão no arquivo)
 3. No Apps Script, escolha a função `configurarGatilhoLimpeza` no
    menu e clique em Executar (instala o gatilho e já testa uma vez)
+
+## Despesas via PIX (comprovante do Nubank)
+
+Ao pagar um PIX (equipe de limpeza, lavanderia, etc.), compartilhe o
+comprovante do app do Nubank por e-mail, mandando pra você mesmo — o
+mesmo Gmail deste script. A cada 15 minutos o script confere se
+chegou comprovante novo, identifica pra quem foi o PIX e já lança a
+despesa certa (imóvel + categoria), sem precisar digitar nada.
+
+O Nubank manda o texto do comprovante certinho no corpo do e-mail
+(não uma imagem escaneada), então o script lê direto — sem OCR.
+
+### Quem recebe o quê
+
+A lista fica em `DESTINATARIOS_DESPESA`, no topo do script:
+
+```js
+const DESTINATARIOS_DESPESA = [
+  { nome: 'francisca caroline oliveira da silva', imovel: 'smg', categoria: 'limpeza' },
+  { nome: 'isis rabeche da silva costa',          imovel: 'pn',  categoria: 'limpeza' },
+  { nome: 'maria selma',                          imovel: 'smg', categoria: 'lavanderia' },
+  { nome: 'fabiano xavier',                       imovel: 'pn',  categoria: 'lavanderia' },
+];
+```
+
+O nome não precisa ser completo — só o bastante pra não bater com
+outra pessoa. Pra adicionar alguém novo, acrescente uma linha. Um PIX
+pra alguém que não está na lista **não é lançado sozinho** — o
+e-mail fica marcado `Despesas/Revisar` no Gmail, e você recebe um
+e-mail avisando, pra lançar manualmente ou adicionar essa pessoa à
+lista.
+
+### Instalação (só uma vez)
+
+1. Compartilhe **um** comprovante de teste (Nubank → Compartilhar
+   comprovante → Mail/Gmail → pra você mesmo)
+2. No Apps Script, escolha `diagnosticoDespesasPix` no menu e clique
+   em Executar — não lança nada, só lê. Confira em "Execuções" (ícone
+   de relógio) se o nome/valor/data saíram certos
+3. Se estiver tudo certo, escolha `configurarGatilhoDespesasPix` e
+   clique em Executar — instala o gatilho de 15 em 15 minutos e já
+   lança o comprovante de teste de verdade
+
+### Prova de duplicidade
+
+Mesmo esquema das reservas: `Despesas/Importado` marca o que já foi
+lançado, e a busca sempre ignora e-mails com esse rótulo (ou com
+`Despesas/Revisar`) — então rodar o script várias vezes não lança o
+mesmo PIX duas vezes.
