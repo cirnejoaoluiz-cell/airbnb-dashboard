@@ -455,3 +455,195 @@ function formatarDataBR_(dataStr) {
   const [a, m, d] = dataStr.split('-');
   return d + '/' + m + '/' + a;
 }
+
+// ═════════════════════════════════════════════════════════════════
+//  DESPESAS VIA PIX (comprovante do Nubank compartilhado por e-mail)
+// ═════════════════════════════════════════════════════════════════
+// Como usar: no app do Nubank, depois de pagar um PIX, toque em
+// "Compartilhar comprovante" → Mail (ou Gmail) → mande pra você
+// mesmo, no mesmo e-mail deste script. A cada 15 minutos o script
+// confere se chegou comprovante novo, identifica pra quem foi o PIX
+// pela lista abaixo e já lança a despesa certa (imóvel + categoria).
+// Se o nome não estiver na lista, o e-mail fica marcado
+// "Despesas/Revisar" em vez de chutar o imóvel/categoria errado.
+
+// Quem recebe seus PIX e pra qual imóvel/categoria de despesa cada
+// um corresponde. O nome não precisa ser completo — só o bastante
+// pra não bater com outra pessoa (ex.: "Maria Selma" já resolve, se
+// só existir uma "Maria Selma" nos seus pagamentos). Pra adicionar
+// alguém novo, é só acrescentar uma linha aqui.
+const DESTINATARIOS_DESPESA = [
+  { nome: 'francisca caroline oliveira da silva', imovel: 'smg', categoria: 'limpeza' },    // Carol
+  { nome: 'isis rabeche da silva costa',          imovel: 'pn',  categoria: 'limpeza' },    // Isis
+  { nome: 'maria selma',                          imovel: 'smg', categoria: 'lavanderia' },
+  { nome: 'fabiano xavier',                       imovel: 'pn',  categoria: 'lavanderia' },
+];
+
+const LABEL_DESPESA_IMPORTADO = 'Despesas/Importado';
+const LABEL_DESPESA_REVISAR   = 'Despesas/Revisar';
+
+function garantirLabelsDespesa_() {
+  [LABEL_DESPESA_IMPORTADO, LABEL_DESPESA_REVISAR].forEach(nome => {
+    if (!GmailApp.getUserLabelByName(nome)) GmailApp.createLabel(nome);
+  });
+}
+
+function normalizarTexto_(txt) {
+  return String(txt || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function identificarDestinoDespesa_(nomeDestino) {
+  const alvo = normalizarTexto_(nomeDestino);
+  return DESTINATARIOS_DESPESA.find(d => alvo.includes(normalizarTexto_(d.nome))) || null;
+}
+
+// ── Extrai valor, data, nome do destinatário e ID da transação do
+// texto do comprovante ("Valor / R$ 161,50", "15 SET 2026 - 23:32:32",
+// "Destino / Nome / Maria Selma..." etc.) ──────────────────────────
+function parseComprovantePix_(msg) {
+  const corpo = msg.getPlainBody();
+
+  const matchData = corpo.match(/(\d{1,2})\s+([A-ZÇÃÉÊÔ]{3})\s+(\d{4})\s*-\s*(\d{1,2}):(\d{2})/i);
+  if (!matchData) throw new Error('Não encontrei a data no comprovante.');
+  const dia = parseInt(matchData[1], 10);
+  const mesAbrev = normalizarMesAbrev_(matchData[2].toLowerCase());
+  const mesIdx = MES_ABREV_PARA_IDX[mesAbrev];
+  if (mesIdx === undefined) throw new Error('Mês não reconhecido no comprovante: ' + matchData[2]);
+  const ano = parseInt(matchData[3], 10);
+  const dataFmt = ano + '-' + pad2_(mesIdx + 1) + '-' + pad2_(dia);
+  const mes = mesAbrev + '/' + String(ano).slice(-2);
+
+  const matchValor = corpo.match(/Valor[\s\S]{0,15}?R\$\s*([\d.,]+)/i);
+  if (!matchValor) throw new Error('Não encontrei o valor no comprovante.');
+  const valor = parseFloat(matchValor[1].replace(/\./g, '').replace(',', '.'));
+  if (!valor || valor <= 0) throw new Error('Valor inválido no comprovante: ' + matchValor[1]);
+
+  const trechoDestino = corpo.match(/Destino([\s\S]*?)CPF/i);
+  if (!trechoDestino) throw new Error('Não encontrei o bloco "Destino" no comprovante.');
+  const matchNome = trechoDestino[1].match(/Nome[\s\S]{0,6}?\n\s*(.+)/i);
+  if (!matchNome) throw new Error('Não encontrei o nome do destinatário no comprovante.');
+  const nomeDestino = matchNome[1].trim();
+
+  const matchId = corpo.match(/ID da transa[çc][ãa]o[\s\S]{0,6}?\n\s*(\S+)/i);
+  const idTransacao = matchId ? matchId[1].trim() : '';
+
+  return { nomeDestino, valor, dataFmt, mes, idTransacao, threadId: msg.getThread().getId() };
+}
+
+function lancarDespesaPixNoFirebase_(comprovante, destino) {
+  pushFirebase_('/lancamentos', {
+    imovel:    destino.imovel,
+    mes:       comprovante.mes,
+    data:      comprovante.dataFmt,
+    motivo:    'PIX — ' + comprovante.nomeDestino,
+    categoria: destino.categoria,
+    tipo:      'saida',
+    valor:     comprovante.valor,
+    pix_id:    comprovante.idTransacao,
+    criado_em: new Date().toISOString(),
+  });
+}
+
+// ── Ponto de entrada (roda no gatilho de tempo) ──────────────────
+function processarDespesasPix() {
+  garantirLabelsDespesa_();
+  const labelImportado = GmailApp.getUserLabelByName(LABEL_DESPESA_IMPORTADO);
+  const labelRevisar    = GmailApp.getUserLabelByName(LABEL_DESPESA_REVISAR);
+
+  const query = '"Comprovante de transferência" -label:"' + LABEL_DESPESA_IMPORTADO + '" -label:"' + LABEL_DESPESA_REVISAR + '"';
+  const threads = GmailApp.search(query, 0, 50);
+
+  const importados = [];
+  const paraRevisar = [];
+
+  threads.forEach(thread => {
+    const mensagens = thread.getMessages();
+    const msg = mensagens[mensagens.length - 1];
+    try {
+      const comprovante = parseComprovantePix_(msg);
+      const destino = identificarDestinoDespesa_(comprovante.nomeDestino);
+      if (!destino) {
+        thread.addLabel(labelRevisar);
+        paraRevisar.push(comprovante);
+        return;
+      }
+      lancarDespesaPixNoFirebase_(comprovante, destino);
+      thread.addLabel(labelImportado);
+      importados.push(Object.assign({}, comprovante, destino));
+    } catch (erro) {
+      thread.addLabel(labelRevisar);
+      paraRevisar.push({ nomeDestino: '(erro ao ler o comprovante)', erro: String(erro), assunto: msg.getSubject() });
+    }
+  });
+
+  if (ENVIAR_RESUMO_POR_EMAIL && (importados.length || paraRevisar.length)) {
+    enviarResumoDespesasPix_(importados, paraRevisar);
+  }
+}
+
+function enviarResumoDespesasPix_(importados, paraRevisar) {
+  const destinatario = Session.getActiveUser().getEmail();
+  let corpo = '';
+  if (importados.length) {
+    corpo += 'Despesas de PIX lançadas automaticamente:\n\n';
+    importados.forEach(c => {
+      const catLabel = c.categoria.charAt(0).toUpperCase() + c.categoria.slice(1);
+      corpo += '• ' + c.imovel.toUpperCase() + ' — ' + catLabel + ' — ' + c.nomeDestino + ' — ' + formatarDataBR_(c.dataFmt) + ' — R$ ' + c.valor.toFixed(2).replace('.', ',') + '\n';
+    });
+  }
+  if (paraRevisar.length) {
+    corpo += '\n⚠️ PIX não reconhecidos (rótulo "Despesas/Revisar" no Gmail) — adicione o nome em DESTINATARIOS_DESPESA ou lance manualmente:\n\n';
+    paraRevisar.forEach(c => {
+      corpo += '• ' + (c.nomeDestino || c.assunto || '?') + (c.valor ? ' — R$ ' + c.valor.toFixed(2).replace('.', ',') : '') + (c.erro ? ' — erro: ' + c.erro : '') + '\n';
+    });
+  }
+  MailApp.sendEmail(destinatario, 'HostDesk — despesas de PIX importadas', corpo);
+}
+
+// ── Instala o gatilho de tempo (rodar 1x manualmente, depois de
+// já ter testado com diagnosticoDespesasPix) ─────────────────────
+function configurarGatilhoDespesasPix() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'processarDespesasPix') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('processarDespesasPix')
+    .timeBased()
+    .everyMinutes(15)
+    .create();
+
+  // Já roda uma vez agora, pra testar
+  processarDespesasPix();
+}
+
+// ── Diagnóstico: lê os comprovantes de PIX já recebidos SEM lançar
+// nada no Firebase nem marcar e-mail nenhum. Rode esta função,
+// depois abra "Execuções" (ícone de relógio) → clique na execução →
+// veja o log, pra conferir se valor/nome/data saíram certos antes
+// de ativar o gatilho automático de verdade (configurarGatilhoDespesasPix).
+function diagnosticoDespesasPix() {
+  const threads = GmailApp.search('"Comprovante de transferência"', 0, 10);
+  if (!threads.length) {
+    Logger.log('Nenhum e-mail com "Comprovante de transferência" encontrado.');
+    return;
+  }
+  threads.forEach(thread => {
+    const mensagens = thread.getMessages();
+    const msg = mensagens[mensagens.length - 1];
+    try {
+      const c = parseComprovantePix_(msg);
+      const destino = identificarDestinoDespesa_(c.nomeDestino);
+      Logger.log(
+        'Nome: "' + c.nomeDestino + '" | Valor: R$' + c.valor + ' | Data: ' + c.dataFmt +
+        ' | ID: ' + c.idTransacao +
+        (destino ? ' | ✅ reconhecido como ' + destino.imovel.toUpperCase() + '/' + destino.categoria
+                  : ' | ⚠️ NÃO reconhecido — cairia em Revisar')
+      );
+    } catch (erro) {
+      Logger.log('Assunto: "' + msg.getSubject() + '" | ❌ erro ao ler: ' + erro);
+    }
+  });
+}
