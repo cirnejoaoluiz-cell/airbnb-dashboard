@@ -78,16 +78,15 @@ body {
      deixa de ser "fixed" sobre o documento e passa a ser só o último
      item da coluna — nunca mais sobrepõe nem briga com o scroll.
 
-     Tentativas anteriores com 100vh/100dvh sobravam uma faixa vazia
-     no fim, mesmo o número batendo com innerHeight — sinal de um bug
-     do WebKit onde unidades de viewport (vh/dvh) e elementos "fixed"
-     usam uma referência de altura diferente da real nesse modo
-     standalone. Usando porcentagem (via html{height:100%}) em vez de
-     unidade de viewport evita esse bug específico. */
+     Trocar vh/dvh por % não mudou nada — não era a unidade. A outra
+     variável em comum era overflow:hidden aqui no body, que pode
+     estar prendendo os elementos "fixed" (toast, modal, FAB) dentro
+     dessa caixa em vez de deixá-los grudados na tela real. Tirando
+     — como .main já cuida de toda rolagem internamente, o body não
+     deveria mesmo ter nada pra rolar por conta própria. */
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .icon { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
