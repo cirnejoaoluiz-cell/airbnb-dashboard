@@ -63,12 +63,25 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { height: 100%; }
+
 body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  /* A página inteira não rola mais — só o <main> (ver mais abaixo). No
+     Safari/iOS, um rodapé fixo "brigando" com a rolagem do documento é
+     um bug conhecido do WebKit: o elemento fixo some/pisca durante o
+     gesto de rolar, e o conteúdo parece "voltar" antes de chegar ao
+     fim. Isolando a rolagem dentro do <main>, o rodapé (.bottom-nav)
+     deixa de ser "fixed" sobre o documento e passa a ser só o último
+     item da coluna — nunca mais sobrepõe nem briga com o scroll. */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .icon { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
@@ -83,8 +96,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 100;
 }
 
@@ -134,7 +146,10 @@ body {
 }
 
 /* ── Main ── */
-.main { padding: 24px 28px; max-width: 1380px; margin: 0 auto; }
+.main {
+  padding: 24px 28px; max-width: 1380px; margin: 0 auto; width: 100%;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
 
 /* ── Tabs (navegação estilo SaaS) ── */
 .tabs, .gi-tabs, .g-tabs {
@@ -708,10 +723,9 @@ tbody tr:hover td { background: var(--surface-2); }
 /* ── Bottom nav (mobile, estilo app) ── */
 .bottom-nav {
   display: none;
-  position: fixed; left: 0; right: 0; bottom: 0;
   background: var(--card); border-top: 1px solid var(--border);
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
-  z-index: 150;
+  flex-shrink: 0;
 }
 .bottom-nav[hidden] { display: none; }
 .bn-item {
@@ -728,7 +742,11 @@ tbody tr:hover td { background: var(--surface-2); }
 @media (max-width: 500px) {
   .bottom-nav { display: flex; }
   #dashboard .tabs { display: none; }
-  .main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  /* O menu inferior agora é um item normal da coluna (não mais
+     "fixed" sobre o conteúdo), então não precisa mais de um respiro
+     grande aqui pra não ficar escondido atrás dele — só um respiro
+     visual normal no fim da rolagem. */
+  .main { padding-bottom: 20px; }
   .fab { bottom: calc(78px + env(safe-area-inset-bottom)); }
 }
 
