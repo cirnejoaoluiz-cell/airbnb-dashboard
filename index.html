@@ -151,8 +151,14 @@ body {
   padding: 24px 28px; max-width: 1380px; margin: 0 auto;
   /* O cabeçalho agora é position:fixed (fora do fluxo normal), então
      o conteúdo precisa de uma margem no topo do tamanho exato dele
-     pra não ficar escondido por baixo. */
+     pra não ficar escondido por baixo. O cabeçalho pode ter altura
+     variável (quebra linha em telas estreitas, ou quando o botão de
+     instalar/notificação aparece), então essa margem é medida de
+     verdade em JavaScript (função ajustarEspacoHeader, perto do fim
+     do arquivo) em vez de um valor fixo — o calc() aqui é só o
+     respaldo, usado até o JS rodar pela primeira vez. */
   margin-top: calc(60px + env(safe-area-inset-top));
+  margin-top: var(--header-h, calc(60px + env(safe-area-inset-top)));
 }
 
 /* ── Tabs (navegação estilo SaaS) ── */
@@ -759,20 +765,22 @@ tbody tr:hover td { background: var(--surface-2); }
 
 /* ── iPhone (portrait) ── */
 @media (max-width: 500px) {
-  /* Header — altura fixa e numa linha só (sem quebrar), pra o
-     cabeçalho ser position:fixed com uma altura previsível. */
+  /* Header — visual original (pode quebrar linha se precisar). O
+     espaço reservado pra ele no conteúdo (.main, margin-top) é
+     medido em JavaScript (ajustarEspacoHeader), não fixo aqui — por
+     isso não precisa forçar altura/linha única só por causa disso. */
   .header {
-    padding: 0 14px;
-    padding-top: env(safe-area-inset-top);
-    height: calc(46px + env(safe-area-inset-top));
-    flex-wrap: nowrap;
+    padding: 8px 14px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    height: auto;
+    flex-wrap: wrap;
     gap: 6px;
   }
   .logo h1 { font-size: 14px; }
   .logo span { font-size: 11px; }
   .logo-icon { width: 28px; height: 28px; }
   .status-bar { font-size: 11px; padding: 4px 10px; }
-  .header-actions { gap: 6px; flex-wrap: nowrap; justify-content: flex-end; }
+  .header-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .install-btn { padding: 6px 12px; font-size: 12px; }
   .icon-btn { width: 28px; height: 28px; }
 
@@ -787,7 +795,6 @@ tbody tr:hover td { background: var(--surface-2); }
   .main {
     padding-top: 12px; padding-left: 12px; padding-right: 12px;
     padding-bottom: calc(76px + env(safe-area-inset-bottom));
-    margin-top: calc(46px + env(safe-area-inset-top));
   }
 
   /* Tabs — rola horizontalmente, sem quebra */
@@ -1422,6 +1429,21 @@ tbody tr:hover td { background: var(--surface-2); }
 <div id="printReport"></div>
 
 <script>
+// ── Espaço reservado pro cabeçalho (position:fixed, altura variável
+// conforme quebra linha ou mostra botões extras) — mede a altura
+// real e grava em --header-h, usada pelo .main (margin-top) pra
+// nunca sobrepor nem sobrar espaço demais, não importa a largura da
+// tela ou se o cabeçalho tem uma ou duas linhas.
+function ajustarEspacoHeader() {
+  const header = document.querySelector('.header');
+  if (!header) return;
+  document.documentElement.style.setProperty('--header-h', header.offsetHeight + 'px');
+}
+ajustarEspacoHeader();
+window.addEventListener('resize', ajustarEspacoHeader);
+window.addEventListener('orientationchange', ajustarEspacoHeader);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustarEspacoHeader);
+
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
 // ════════════════════════════════════════════════════════════
@@ -1648,6 +1670,7 @@ window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _deferredInstallPrompt = e;
   document.getElementById('installBtn').classList.add('show');
+  ajustarEspacoHeader();
 });
 function promptInstall() {
   const btn = document.getElementById('installBtn');
@@ -1656,6 +1679,7 @@ function promptInstall() {
   _deferredInstallPrompt.userChoice.finally(() => {
     _deferredInstallPrompt = null;
     btn.classList.remove('show');
+    ajustarEspacoHeader();
   });
 }
 window.addEventListener('appinstalled', () => {
@@ -1682,6 +1706,7 @@ async function initNotificacoes() {
   if (Notification.permission === 'granted' && localStorage.getItem('notificacoesAtivadas') === '1') {
     btn.classList.add('ativo');
   }
+  ajustarEspacoHeader();
 }
 
 async function ativarNotificacoes() {
