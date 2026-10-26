@@ -1425,6 +1425,13 @@ ajustarAlturaApp();
 window.addEventListener('resize', ajustarAlturaApp);
 window.addEventListener('orientationchange', ajustarAlturaApp);
 if (window.visualViewport) window.visualViewport.addEventListener('resize', ajustarAlturaApp);
+// PWA instalado voltando de segundo plano (iOS só "congela" o app ao
+// minimizar, em vez de recarregar) — recalcula ao reaparecer, caso a
+// tela tenha mudado de tamanho enquanto estava escondido.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') ajustarAlturaApp();
+});
+window.addEventListener('pageshow', ajustarAlturaApp);
 
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
