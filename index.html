@@ -96,8 +96,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: sticky;
-  top: 0;
+  position: fixed;
+  top: 0; left: 0; right: 0;
   z-index: 100;
 }
 
@@ -149,6 +149,10 @@ body {
 /* ── Main ── */
 .main {
   padding: 24px 28px; max-width: 1380px; margin: 0 auto;
+  /* O cabeçalho agora é position:fixed (fora do fluxo normal), então
+     o conteúdo precisa de uma margem no topo do tamanho exato dele
+     pra não ficar escondido por baixo. */
+  margin-top: calc(60px + env(safe-area-inset-top));
 }
 
 /* ── Tabs (navegação estilo SaaS) ── */
@@ -723,7 +727,8 @@ tbody tr:hover td { background: var(--surface-2); }
 /* ── Bottom nav (mobile, estilo app) ── */
 .bottom-nav {
   display: none;
-  position: sticky; bottom: 0;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
   background: var(--card); border-top: 1px solid var(--border);
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   z-index: 150;
@@ -743,11 +748,6 @@ tbody tr:hover td { background: var(--surface-2); }
 @media (max-width: 500px) {
   .bottom-nav { display: flex; }
   #dashboard .tabs { display: none; }
-  /* O menu inferior usa position:sticky (não fixed, pra não bater no
-     bug do iOS 26 de container do tamanho da tela), então não precisa
-     de um respiro grande aqui pra não ficar escondido atrás dele — só
-     um respiro visual normal no fim da rolagem. */
-  .main { padding-bottom: 20px; }
   .fab { bottom: calc(78px + env(safe-area-inset-bottom)); }
 }
 
@@ -759,24 +759,36 @@ tbody tr:hover td { background: var(--surface-2); }
 
 /* ── iPhone (portrait) ── */
 @media (max-width: 500px) {
-  /* Header */
+  /* Header — altura fixa e numa linha só (sem quebrar), pra o
+     cabeçalho ser position:fixed com uma altura previsível. */
   .header {
-    padding: 8px 14px;
-    padding-top: calc(8px + env(safe-area-inset-top));
-    height: auto;
-    flex-wrap: wrap;
+    padding: 0 14px;
+    padding-top: env(safe-area-inset-top);
+    height: calc(46px + env(safe-area-inset-top));
+    flex-wrap: nowrap;
     gap: 6px;
   }
   .logo h1 { font-size: 14px; }
   .logo span { font-size: 11px; }
   .logo-icon { width: 28px; height: 28px; }
   .status-bar { font-size: 11px; padding: 4px 10px; }
-  .header-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .header-actions { gap: 6px; flex-wrap: nowrap; justify-content: flex-end; }
   .install-btn { padding: 6px 12px; font-size: 12px; }
   .icon-btn { width: 28px; height: 28px; }
 
-  /* Main */
-  .main { padding: 12px; }
+  /* Main — padding-top/left/right aqui; padding-bottom é o respiro
+     pro menu inferior, que virou position:fixed de verdade (imune ao
+     efeito elástico de "quicar" no fim da rolagem, que o sticky não
+     evita) — por estar fora do fluxo normal, o conteúdo precisa desse
+     respiro do tamanho dele pra não ficar escondido atrás. Essas
+     declarações vêm depois do bloco "Tablet" de propósito, pra não
+     serem sobrescritas por ele (ambos batem num celular, já que
+     max-width:1100px também inclui telas de celular). */
+  .main {
+    padding-top: 12px; padding-left: 12px; padding-right: 12px;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    margin-top: calc(46px + env(safe-area-inset-top));
+  }
 
   /* Tabs — rola horizontalmente, sem quebra */
   .tabs, .gi-tabs, .g-tabs {
