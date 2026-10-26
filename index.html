@@ -1413,6 +1413,15 @@ tbody tr:hover td { background: var(--surface-2); }
 <div id="printReport"></div>
 
 <script>
+// ── DIAGNÓSTICO TEMPORÁRIO (2) — linha rosa colada em bottom:0 do
+// viewport de verdade (position:fixed, não depende da altura do
+// body) pra ver se o fim real da tela bate com o fim do body ou não.
+// Remover depois de resolvido.
+(function linhaDiagnosticoTemp() {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed; left:0; right:0; bottom:0; height:6px; background:#ff00ff; z-index:9999; pointer-events:none;';
+  document.body.appendChild(el);
+})();
 
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
