@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>HostDesk — Central de Locações</title>
 
 <!-- PWA -->
@@ -69,6 +69,10 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  /* Trava o zoom por toque duplo (reforço — a tag viewport já bloqueia
+     o zoom por pinça; isso cobre o gesto de toque duplo, que o iOS às
+     vezes ainda permite mesmo com user-scalable=no). */
+  touch-action: manipulation;
   /* O body voltou a rolar do jeito normal (como era antes). O "container
      do tamanho da tela" que eu tinha criado pra isolar a rolagem dentro
      do <main> é exatamente o gatilho de um bug documentado do iOS 26
