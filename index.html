@@ -1443,6 +1443,14 @@ ajustarEspacoHeader();
 window.addEventListener('resize', ajustarEspacoHeader);
 window.addEventListener('orientationchange', ajustarEspacoHeader);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustarEspacoHeader);
+// Acompanha QUALQUER mudança de tamanho do cabeçalho, de qualquer
+// causa (botão de notificação/instalar aparecendo, fonte carregando
+// mais tarde, orientação, etc.) — mais confiável do que tentar prever
+// cada gatilho manualmente um por um.
+if ('ResizeObserver' in window) {
+  const headerEl = document.querySelector('.header');
+  if (headerEl) new ResizeObserver(ajustarEspacoHeader).observe(headerEl);
+}
 
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
