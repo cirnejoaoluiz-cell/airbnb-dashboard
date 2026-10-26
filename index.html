@@ -79,6 +79,7 @@ body {
      item da coluna — nunca mais sobrepõe nem briga com o scroll. */
   height: 100vh;
   height: 100dvh;
+  height: var(--app-height, 100dvh);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1409,6 +1410,22 @@ tbody tr:hover td { background: var(--surface-2); }
 <div id="printReport"></div>
 
 <script>
+// ── Altura real da tela (corrige o "vão" do Safari no iPhone) ────
+// O CSS puro (100dvh) deveria acompanhar a barra de endereço do
+// Safari escondendo/aparecendo ao rolar, mas na prática o iOS às
+// vezes não atualiza isso a tempo durante o próprio gesto de
+// rolagem — sobra um vão vazio embaixo do menu inferior. Calculando
+// a altura certa aqui e atualizando a cada mudança real do viewport
+// visual resolve isso de forma confiável.
+function ajustarAlturaApp() {
+  const altura = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', altura + 'px');
+}
+ajustarAlturaApp();
+window.addEventListener('resize', ajustarAlturaApp);
+window.addEventListener('orientationchange', ajustarAlturaApp);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', ajustarAlturaApp);
+
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
 // ════════════════════════════════════════════════════════════
