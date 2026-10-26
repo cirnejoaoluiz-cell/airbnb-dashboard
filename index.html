@@ -728,7 +728,7 @@ tbody tr:hover td { background: var(--surface-2); }
 @media (max-width: 500px) {
   .bottom-nav { display: flex; }
   #dashboard .tabs { display: none; }
-  .main { padding-bottom: 90px; }
+  .main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   .fab { bottom: calc(78px + env(safe-area-inset-bottom)); }
 }
 
