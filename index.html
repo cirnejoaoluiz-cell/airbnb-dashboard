@@ -78,11 +78,13 @@ body {
      deixa de ser "fixed" sobre o documento e passa a ser só o último
      item da coluna — nunca mais sobrepõe nem briga com o scroll.
 
-     100dvh já é a altura real da tela (confirmado com innerHeight/
-     visualViewport/screen.height batendo exatamente num iPhone real)
-     — nada a somar por cima. */
-  height: 100vh;
-  height: 100dvh;
+     Tentativas anteriores com 100vh/100dvh sobravam uma faixa vazia
+     no fim, mesmo o número batendo com innerHeight — sinal de um bug
+     do WebKit onde unidades de viewport (vh/dvh) e elementos "fixed"
+     usam uma referência de altura diferente da real nesse modo
+     standalone. Usando porcentagem (via html{height:100%}) em vez de
+     unidade de viewport evita esse bug específico. */
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1413,6 +1415,14 @@ tbody tr:hover td { background: var(--surface-2); }
 <div id="printReport"></div>
 
 <script>
+// ── DIAGNÓSTICO TEMPORÁRIO (3) — linha rosa colada em bottom:0 do
+// viewport de verdade, pra confirmar se height:100% (em vez de
+// vh/dvh) resolve o vão. Remover depois de confirmado.
+(function linhaDiagnosticoTemp() {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed; left:0; right:0; bottom:0; height:6px; background:#ff00ff; z-index:9999; pointer-events:none;';
+  document.body.appendChild(el);
+})();
 
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
