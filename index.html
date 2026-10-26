@@ -76,10 +76,15 @@ body {
      gesto de rolar, e o conteúdo parece "voltar" antes de chegar ao
      fim. Isolando a rolagem dentro do <main>, o rodapé (.bottom-nav)
      deixa de ser "fixed" sobre o documento e passa a ser só o último
-     item da coluna — nunca mais sobrepõe nem briga com o scroll. */
-  height: 100vh;
-  height: 100dvh;
-  height: var(--app-height, 100dvh);
+     item da coluna — nunca mais sobrepõe nem briga com o scroll.
+
+     No app instalado (standalone) com barra de status translúcida, o
+     100dvh do Safari não conta a altura da barra de status, mesmo o
+     conteúdo desenhando por baixo dela — sobra um vão vazio do
+     tamanho da barra de status embaixo do menu inferior. Somar
+     env(safe-area-inset-top) de volta corrige essa conta. */
+  height: calc(100vh + env(safe-area-inset-top));
+  height: calc(100dvh + env(safe-area-inset-top));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1410,28 +1415,6 @@ tbody tr:hover td { background: var(--surface-2); }
 <div id="printReport"></div>
 
 <script>
-// ── Altura real da tela (corrige o "vão" do Safari no iPhone) ────
-// O CSS puro (100dvh) deveria acompanhar a barra de endereço do
-// Safari escondendo/aparecendo ao rolar, mas na prática o iOS às
-// vezes não atualiza isso a tempo durante o próprio gesto de
-// rolagem — sobra um vão vazio embaixo do menu inferior. Calculando
-// a altura certa aqui e atualizando a cada mudança real do viewport
-// visual resolve isso de forma confiável.
-function ajustarAlturaApp() {
-  const altura = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  document.documentElement.style.setProperty('--app-height', altura + 'px');
-}
-ajustarAlturaApp();
-window.addEventListener('resize', ajustarAlturaApp);
-window.addEventListener('orientationchange', ajustarAlturaApp);
-if (window.visualViewport) window.visualViewport.addEventListener('resize', ajustarAlturaApp);
-// PWA instalado voltando de segundo plano (iOS só "congela" o app ao
-// minimizar, em vez de recarregar) — recalcula ao reaparecer, caso a
-// tela tenha mudado de tamanho enquanto estava escondido.
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') ajustarAlturaApp();
-});
-window.addEventListener('pageshow', ajustarAlturaApp);
 
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
