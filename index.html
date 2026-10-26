@@ -1415,6 +1415,35 @@ tbody tr:hover td { background: var(--surface-2); }
 <div id="printReport"></div>
 
 <script>
+// ── DIAGNÓSTICO TEMPORÁRIO — remover depois de ajustar o vão da tela
+// no iPhone. Mostra os números reais do aparelho pra calcular a conta
+// certa de primeira, em vez de adivinhar.
+(function diagnosticoAlturaTemp() {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed; top:4px; left:4px; z-index:9999; background:#000; color:#0f0; font:10px monospace; padding:6px 8px; border-radius:6px; white-space:pre; pointer-events:none; opacity:0.9;';
+  function atualizar() {
+    const cs = getComputedStyle(document.documentElement);
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed; top:0; left:0; height:env(safe-area-inset-top); width:1px; visibility:hidden;';
+    document.body.appendChild(probe);
+    const insetTop = probe.getBoundingClientRect().height;
+    probe.style.height = 'env(safe-area-inset-bottom)';
+    const insetBottom = probe.getBoundingClientRect().height;
+    probe.remove();
+    el.textContent =
+      'innerH: ' + window.innerHeight +
+      ' | vvH: ' + (window.visualViewport ? Math.round(window.visualViewport.height) : '—') +
+      ' | screenH: ' + window.screen.height +
+      '\ninsetTop: ' + insetTop + ' | insetBottom: ' + insetBottom +
+      '\nbodyH: ' + Math.round(document.body.getBoundingClientRect().height) +
+      ' | standalone: ' + (window.navigator.standalone === true);
+  }
+  document.body.appendChild(el);
+  atualizar();
+  window.addEventListener('resize', atualizar);
+  setInterval(atualizar, 1000);
+})();
+
 
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FIREBASE — cole os valores do seu projeto
